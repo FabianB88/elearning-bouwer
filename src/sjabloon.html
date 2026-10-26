@@ -1,0 +1,355 @@
+<title>E-learning Bouwer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Werkplaats in drie banen: structuur links, het blok dat je bewerkt in het
+   midden, de echte speler rechts. Groen zoals de minor, de speler houdt zijn
+   eigen warme palet. */
+:root {
+  --bg: #f1f3ee;
+  --paneel: #ffffff;
+  --vlak: #f6f7f3;
+  --lijn: #dde2d8;
+  --tekst: #1c2b24;
+  --tekst-2: #5d6d65;
+  --tekst-3: #87958d;
+  --accent: #2c6a4d;
+  --accent-sterk: #1f5039;
+  --accent-zacht: #e2eee6;
+  --op-accent: #ffffff;
+  --waarschuwing: #a8521f;
+  --waarschuwing-zacht: #f8eadf;
+  --gevaar: #b23a2e;
+  --gevaar-zacht: #f9e5e2;
+  --schaduw: 0 10px 30px rgba(20, 40, 30, 0.12);
+  --f-kop: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --f-tekst: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111613; --paneel: #181f1b; --vlak: #1e2621; --lijn: #2b3630;
+    --tekst: #e5ece7; --tekst-2: #a3b2a9; --tekst-3: #77877e;
+    --accent: #7cc39a; --accent-sterk: #a3dbb9; --accent-zacht: #203a2c; --op-accent: #0f1a14;
+    --waarschuwing: #e2a172; --waarschuwing-zacht: #3a2a1d; --gevaar: #ef8b7f; --gevaar-zacht: #3b2220;
+    --schaduw: 0 10px 30px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111613; --paneel: #181f1b; --vlak: #1e2621; --lijn: #2b3630;
+  --tekst: #e5ece7; --tekst-2: #a3b2a9; --tekst-3: #77877e;
+  --accent: #7cc39a; --accent-sterk: #a3dbb9; --accent-zacht: #203a2c; --op-accent: #0f1a14;
+  --waarschuwing: #e2a172; --waarschuwing-zacht: #3a2a1d; --gevaar: #ef8b7f; --gevaar-zacht: #3b2220;
+  --schaduw: 0 10px 30px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--tekst);
+  font-family: var(--f-tekst);
+  font-size: 14px;
+  overflow: hidden;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paneel); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--f-kop); letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+
+.app { height: 100%; display: flex; flex-direction: column; }
+
+/* ---------------------------------------------------------------- bovenbalk */
+.bovenbalk {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  min-height: 56px;
+  padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--paneel);
+  border-bottom: 1px solid var(--lijn);
+}
+.merk { display: flex; align-items: center; gap: 10px; font-family: var(--f-kop); font-weight: 800; font-size: 15px; white-space: nowrap; }
+.merk-teken { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--op-accent); display: grid; place-items: center; }
+.cursuskeuze { min-width: 0; flex: 1 1 220px; max-width: 360px; }
+.cursuskeuze select { width: 100%; }
+.status { font-size: 12px; color: var(--tekst-2); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--tekst-3); }
+.status[data-soort="ok"]::before { background: var(--accent); }
+.status[data-soort="bezig"]::before { background: var(--waarschuwing); }
+.status[data-soort="fout"]::before { background: var(--gevaar); }
+.bovenbalk .acties { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------- knoppen en velden */
+.knop {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 36px; padding: 7px 13px;
+  border: 1px solid var(--lijn); border-radius: 8px;
+  background: var(--paneel); color: var(--tekst);
+  font-weight: 600; font-size: 13px; white-space: nowrap;
+}
+.knop:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-sterk); }
+.knop.primair { background: var(--accent); border-color: var(--accent); color: var(--op-accent); }
+.knop.primair:hover:not(:disabled) { background: var(--accent-sterk); border-color: var(--accent-sterk); color: var(--op-accent); }
+.knop.claude { border-color: var(--accent); color: var(--accent-sterk); background: var(--accent-zacht); }
+.knop.gevaar { color: var(--gevaar); }
+.knop.gevaar.vast { background: var(--gevaar); border-color: var(--gevaar); color: #fff; }
+.knop.klein { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+.knop:disabled { opacity: 0.5; cursor: default; }
+.icoonknop {
+  width: 30px; height: 30px; display: inline-grid; place-items: center;
+  border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--tekst-2);
+}
+.icoonknop:hover:not(:disabled) { background: var(--vlak); color: var(--tekst); border-color: var(--lijn); }
+.icoonknop:disabled { opacity: 0.35; cursor: default; }
+.icoonknop svg, .knop svg { width: 16px; height: 16px; flex: 0 0 auto; }
+
+input[type="text"], input[type="url"], input[type="number"], select, textarea {
+  width: 100%; box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--lijn); border-radius: 8px;
+  background: var(--paneel);
+  font-size: 13.5px; line-height: 1.45;
+}
+textarea { resize: vertical; min-height: 64px; }
+input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-zacht); }
+.veld { display: grid; gap: 5px; min-width: 0; }
+.veld > label, .veldlabel { font-size: 11.5px; font-weight: 600; color: var(--tekst-2); letter-spacing: 0.02em; }
+.veld .hulp { font-size: 11.5px; color: var(--tekst-3); line-height: 1.45; }
+.velden { display: grid; gap: 12px; }
+.twee { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+/* Grids krimpen mee met het scherm in plaats van mee te groeien met lange inhoud. */
+.editor, .editor-kop, .blokken, .velden, .veld, .blok-body, .reeks, .reeks-item, .palet, .dialoog, .keuzelijst { grid-template-columns: minmax(0, 1fr); }
+.schakel { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tekst); }
+.schakel input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* ---------------------------------------------------------------- werkruimte */
+.werk {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) minmax(380px, 40%);
+}
+.baan { min-height: 0; overflow: auto; }
+.baan-structuur { background: var(--paneel); border-right: 1px solid var(--lijn); }
+.baan-voorbeeld { display: flex; flex-direction: column; border-left: 1px solid var(--lijn); background: var(--vlak); overflow: hidden; }
+.segment-keuze.tabs-smal { display: none; }
+.tabs-smal .alleen-mobiel { display: none; }
+
+.sectie { padding: 18px 16px; border-bottom: 1px solid var(--lijn); }
+.sectie-kop { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.sectie-kop h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--tekst-2); font-weight: 700; }
+
+.modulelijst { display: grid; gap: 4px; margin: 0 0 12px; padding: 0; list-style: none; }
+.module-item {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  padding: 7px 6px 7px 8px; border-radius: 8px; border: 1px solid transparent;
+}
+.module-item:hover { background: var(--vlak); }
+.module-item.actief { background: var(--accent-zacht); border-color: var(--accent); }
+.module-item .nr { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--vlak); color: var(--tekst-2); border: 1px solid var(--lijn); }
+.module-item.actief .nr { background: var(--accent); border-color: var(--accent); color: var(--op-accent); }
+.module-item .kies { text-align: left; background: none; border: 0; padding: 0; min-width: 0; }
+.module-item .kies strong { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.module-item .kies small { display: block; font-size: 11px; color: var(--tekst-3); margin-top: 1px; }
+.module-item .mini { display: flex; gap: 0; opacity: 0; }
+.module-item:hover .mini, .module-item.actief .mini, .module-item:focus-within .mini { opacity: 1; }
+.knoprij { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------- editor */
+.baan-editor { padding-block: 22px 120px; padding-left: max(16px, 3vw); padding-right: max(16px, 3vw); }
+.editor { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
+.editor-kop { display: grid; gap: 12px; padding-bottom: 6px; }
+.editor-kop .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 700; }
+.editor-kop .titelveld { font-family: var(--f-kop); font-size: 22px; font-weight: 800; padding: 8px 10px; }
+.editor-kop .rij { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.editor-kop .rij .veld { flex: 1 1 200px; }
+
+.blokken { display: grid; gap: 0; }
+.blok-kaart {
+  background: var(--paneel);
+  border: 1px solid var(--lijn);
+  border-radius: var(--r);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.blok-kaart.gekozen { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-zacht); }
+.blok-kop { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; min-height: 42px; }
+.blok-kop .type { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tekst-2); background: none; border: 0; padding: 4px 0; }
+.blok-kop .type svg { width: 15px; height: 15px; color: var(--accent); }
+.blok-kop .samenvatting { flex: 1; min-width: 0; font-size: 12.5px; color: var(--tekst-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blok-kop .acties { display: flex; gap: 0; }
+.blok-body { padding: 4px 14px 16px; display: grid; gap: 12px; }
+.blok-kaart.dicht .blok-body { display: none; }
+.waarschuwing { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--waarschuwing); background: var(--waarschuwing-zacht); padding: 3px 8px; border-radius: 6px; }
+
+.blok-kaart.doorgaan-kaart { background: transparent; border-style: dashed; }
+.blok-kaart.doorgaan-kaart .blok-kop .samenvatting { text-align: center; }
+
+.invoegen { position: relative; height: 14px; display: grid; place-items: center; }
+.invoegen button {
+  opacity: 0; transition: opacity 0.12s ease;
+  font-size: 11.5px; font-weight: 600; color: var(--accent-sterk);
+  background: var(--paneel); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 10px;
+  position: relative; z-index: 1;
+}
+.invoegen::before { content: ""; position: absolute; left: 12px; right: 12px; top: 50%; border-top: 1px dashed var(--accent); opacity: 0; transition: opacity 0.12s ease; }
+.invoegen:hover button, .invoegen:hover::before, .invoegen button:focus-visible, .invoegen.open button, .invoegen.open::before { opacity: 1; }
+
+.toevoegen-onder { margin-top: 14px; display: grid; }
+.toevoegen-onder > .knop { justify-self: start; }
+
+.palet {
+  margin: 8px 0 12px;
+  background: var(--paneel); border: 1px solid var(--accent); border-radius: var(--r);
+  box-shadow: var(--schaduw); padding: 14px;
+  display: grid; gap: 12px;
+}
+.palet-groep h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--tekst-2); margin-bottom: 6px; font-family: var(--f-tekst); font-weight: 700; }
+.palet-knoppen { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.palet-knoppen button {
+  display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 2px 8px; align-items: start; text-align: left;
+  padding: 8px 10px; border: 1px solid var(--lijn); border-radius: 8px; background: var(--paneel);
+}
+.palet-knoppen button:hover { border-color: var(--accent); background: var(--accent-zacht); }
+.palet-knoppen svg { width: 16px; height: 16px; color: var(--accent); margin-top: 1px; grid-row: span 2; }
+.palet-knoppen strong { font-size: 12.5px; }
+.palet-knoppen small { font-size: 11px; color: var(--tekst-3); line-height: 1.35; }
+
+/* reeksen van onderdelen in een blok: tabbladen, opties, paren */
+.reeks { display: grid; gap: 8px; }
+.reeks-item { border: 1px solid var(--lijn); border-radius: 8px; padding: 10px; background: var(--vlak); display: grid; gap: 8px; }
+.reeks-item-kop { display: flex; align-items: center; gap: 6px; }
+.reeks-item-kop .nr { font-size: 11px; font-weight: 700; color: var(--tekst-3); min-width: 18px; }
+.reeks-item-kop .ruimte { flex: 1; }
+.reeks-rij { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.reeks-rij.drie { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.reeks-rij .icoonknop { margin-top: 3px; }
+.juist-vink { display: grid; place-items: center; width: 34px; height: 36px; border: 1px solid var(--lijn); border-radius: 8px; background: var(--paneel); }
+.juist-vink input { width: 17px; height: 17px; accent-color: var(--accent); margin: 0; }
+.juist-vink:has(input:checked) { border-color: var(--accent); background: var(--accent-zacht); }
+
+/* opgemaakte tekst */
+.rijk-veld { border: 1px solid var(--lijn); border-radius: 8px; background: var(--paneel); }
+.rijk-veld:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-zacht); }
+.rijk-balk { display: flex; gap: 2px; padding: 4px; border-bottom: 1px solid var(--lijn); flex-wrap: wrap; }
+.rijk-balk button { min-width: 30px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--tekst-2); font-size: 12.5px; font-weight: 700; padding: 0 7px; }
+.rijk-balk button:hover { background: var(--vlak); color: var(--tekst); }
+.rijk { min-height: 90px; padding: 10px 12px; font-size: 14px; line-height: 1.6; outline: none; overflow-wrap: anywhere; }
+.rijk:empty::before { content: attr(data-leeg); color: var(--tekst-3); }
+.rijk p { margin: 0 0 0.6em; }
+.rijk h3 { font-size: 15px; margin: 0.6em 0 0.3em; }
+.rijk ul, .rijk ol { margin: 0 0 0.6em; padding-left: 1.3em; }
+.rijk a { color: var(--accent-sterk); }
+.linkregel { display: flex; gap: 6px; padding: 6px; border-top: 1px solid var(--lijn); }
+
+.beeld-kies { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: center; }
+.beeld-kies .duim { width: 120px; height: 80px; border-radius: 8px; border: 1px dashed var(--lijn); background: var(--vlak) center / contain no-repeat; display: grid; place-items: center; font-size: 11px; color: var(--tekst-3); text-align: center; }
+.herkend { font-size: 12px; color: var(--accent-sterk); background: var(--accent-zacht); border-radius: 6px; padding: 6px 9px; }
+.herkend.niet { color: var(--waarschuwing); background: var(--waarschuwing-zacht); }
+
+/* ---------------------------------------------------------------- voorbeeld */
+.voorbeeld-balk { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--lijn); background: var(--paneel); flex-wrap: wrap; }
+.voorbeeld-balk .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--tekst-2); font-weight: 700; margin-right: auto; }
+.segment-keuze { display: inline-flex; border: 1px solid var(--lijn); border-radius: 8px; overflow: hidden; }
+.segment-keuze button { border: 0; background: var(--paneel); padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--tekst-2); }
+.segment-keuze button[aria-pressed="true"] { background: var(--accent-zacht); color: var(--accent-sterk); }
+.voorbeeld-veld { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; padding: 14px; }
+.voorbeeld-scherm { width: 100%; height: 100%; overflow: auto; border-radius: 10px; border: 1px solid var(--lijn); background: #F7F4F0; }
+.voorbeeld-scherm.telefoon { width: 390px; max-width: 100%; border-radius: 22px; border-width: 6px; border-color: var(--tekst-3); }
+
+/* ---------------------------------------------------------------- dialogen */
+.dialoog-achter { position: fixed; inset: 0; background: rgba(10, 20, 15, 0.45); z-index: 50; display: grid; place-items: center; padding: 16px; }
+.dialoog { width: min(640px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--paneel); border-radius: 14px; box-shadow: var(--schaduw); padding: 22px; display: grid; gap: 14px; border: 1px solid var(--lijn); }
+.dialoog h2 { font-size: 19px; }
+.dialoog p { margin: 0; color: var(--tekst-2); line-height: 1.55; }
+.dialoog .voet { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.dialoog .voortgang { font-size: 12.5px; color: var(--tekst-2); background: var(--vlak); border-radius: 8px; padding: 10px 12px; }
+.dialoog .fout { color: var(--gevaar); background: var(--gevaar-zacht); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.keuzelijst { display: grid; gap: 8px; }
+.keuzelijst button { text-align: left; display: grid; gap: 3px; padding: 12px 14px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--paneel); }
+.keuzelijst button:hover { border-color: var(--accent); background: var(--accent-zacht); }
+.keuzelijst strong { font-size: 14px; }
+.keuzelijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
+
+.melding { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--tekst); color: var(--paneel); padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--schaduw); max-width: calc(100% - 32px); }
+.bevestig { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--gevaar); }
+
+/* ---------------------------------------------------------------- smal */
+@media (max-width: 1180px) {
+  .werk { grid-template-columns: 250px minmax(0, 1fr); }
+  .werk[data-tab="voorbeeld"] .baan-editor { display: none; }
+  .werk:not([data-tab="voorbeeld"]) .baan-voorbeeld { display: none; }
+  .werk .baan-voorbeeld { border-left: 0; }
+  .segment-keuze.tabs-smal { display: inline-flex; }
+}
+@media (max-width: 760px) {
+  .werk { grid-template-columns: minmax(0, 1fr); }
+  .tabs-smal .alleen-mobiel { display: inline-block; }
+  .werk .baan-structuur { display: none; border-right: 0; }
+  .werk[data-tab="structuur"] .baan-structuur { display: block; }
+  .werk[data-tab="structuur"] .baan-editor { display: none; }
+  .bovenbalk { gap: 6px 10px; }
+  .bovenbalk .acties { margin-left: 0; width: 100%; flex-wrap: nowrap; }
+  .bovenbalk .acties .tabs-smal { flex: 1 1 auto; }
+  .bovenbalk .acties .tabs-smal button { flex: 1 1 0; padding-inline: 6px; }
+  #knop-openen { padding-inline: 10px; }
+  .cursuskeuze { flex: 1 1 0; max-width: none; }
+  .status { order: 4; width: 100%; font-size: 11px; }
+  .twee, .reeks-rij.drie { grid-template-columns: minmax(0, 1fr); }
+  .beeld-kies { grid-template-columns: minmax(0, 1fr); }
+  .merk-naam { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <header class="bovenbalk">
+    <div class="merk"><span class="merk-teken" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V6a2 2 0 0 1 2-2h12v13H6a2 2 0 0 0-2 2Z"/><path d="M4 19a2 2 0 0 0 2 2h12v-4"/><path d="M9 8h5M9 11h4"/></svg></span><span class="merk-naam">E-learning Bouwer</span></div>
+    <div class="cursuskeuze"><label class="veldlabel" for="cursus-keuze" hidden>E-learning</label><select id="cursus-keuze" aria-label="Kies een e-learning"></select></div>
+    <span class="status" id="status" data-soort="">Voorbeeld</span>
+    <div class="acties">
+      <span class="segment-keuze tabs-smal" id="tabs-smal" role="group" aria-label="Weergave">
+        <button type="button" data-tab="structuur" class="alleen-mobiel">Structuur</button>
+        <button type="button" data-tab="bewerken" aria-pressed="true">Bewerken</button>
+        <button type="button" data-tab="voorbeeld">Voorbeeld</button>
+      </span>
+      <button type="button" class="knop" id="knop-openen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Openen</button>
+      <button type="button" class="knop primair" id="knop-export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Exporteren</button>
+    </div>
+    <input type="file" id="bestand-openen" accept=".json,.html,.htm,application/json,text/html" hidden>
+  </header>
+
+  <div class="werk" id="werk" data-tab="bewerken">
+    <aside class="baan baan-structuur" id="structuur" aria-label="Opbouw van de e-learning"></aside>
+    <main class="baan baan-editor" id="editor-baan"><div class="editor" id="editor"></div></main>
+    <section class="baan baan-voorbeeld" aria-label="Voorbeeld">
+      <div class="voorbeeld-balk">
+        <span class="label">Voorbeeld</span>
+        <span class="segment-keuze" role="group" aria-label="Zo ziet de student het">
+          <button type="button" id="vb-alles" aria-pressed="true">Alles tonen</button>
+          <button type="button" id="vb-student" aria-pressed="false">Als student</button>
+        </span>
+        <span class="segment-keuze" role="group" aria-label="Schermbreedte">
+          <button type="button" id="vb-breed" aria-pressed="true">Breed</button>
+          <button type="button" id="vb-telefoon" aria-pressed="false">Telefoon</button>
+        </span>
+        <button type="button" class="knop klein" id="vb-wis" title="Wis de antwoorden in het voorbeeld">Antwoorden wissen</button>
+      </div>
+      <div class="voorbeeld-veld"><div class="voorbeeld-scherm" id="voorbeeld"></div></div>
+    </section>
+  </div>
+</div>
+
+<script type="text/plain" id="speler-css">/*SPELER_CSS*/</script>
+<script type="application/json" id="voorbeeld-cursus">/*VOORBEELD*/</script>
+<script>
+/*SPELER_JS*/
+</script>
+<script>
+/*BOUWER_JS*/
+</script>
