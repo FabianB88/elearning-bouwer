@@ -3,7 +3,8 @@
 Een bouwer voor e-learnings in het format van de [e-learnings van de minor Circulaire Economie](https://github.com/FabianB88/minor-ce-elearnings), zoals *Business Ethics* en *Duurzame waarde*. Je klikt blokken aan en vult ze in, en ziet ze live in dezelfde speler die studenten gebruiken.
 
 - **Claude-artifact** (met opslag in je account en Claude-hulp): https://claude.ai/artifact/RnohLRy2qXGiJBwsbL1ZMK. Het artifact is privé; vraag de eigenaar om toegang als Bijdrager.
-- **Los bestand:** open `index.html` in een browser. Alles werkt, behalve de Claude-hulp. Je werk wordt dan in de browser bewaard.
+- **Online, zonder account:** https://fabianb88.github.io/elearning-bouwer/. Alles werkt, behalve de Claude-hulp; je werk wordt in je browser bewaard.
+- **Los bestand:** open `index.html` in een browser; dat werkt hetzelfde als de online versie.
 
 ## Wat de bouwer kan
 
