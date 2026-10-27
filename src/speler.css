@@ -27,6 +27,17 @@
   --go-rood: #C0392B;
   --go-rood-licht: #FBEDEA;
 
+  /* Goed beantwoord heeft een eigen kleur, zodat een ander accent (zoals
+     HAN-rood) niet ook 'goed' gaat betekenen. Een designsjabloon overschrijft
+     deze waarden en de lettertypen. */
+  --go-goed: #5C7A5A;
+  --go-goed-donker: #4A6349;
+  --go-goed-licht: #EDF3EC;
+
+  --go-font: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --go-font-kop: var(--go-font);
+  --go-kop-gewicht: 600;
+
   --r-kaart: 14px;
   --r-knop: 10px;
 
@@ -42,7 +53,7 @@
   background: var(--go-bg);
   color: var(--go-tekst);
   margin: 0;
-  font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--go-font);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -227,7 +238,7 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(247, 244, 240, 0.92);
+  background: color-mix(in srgb, var(--go-bg) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--go-rand-zacht);
 }
@@ -468,8 +479,8 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
   color: #fff;
 }
 
-.optie.goed { border-color: var(--go-groen); background: var(--go-groen-licht); }
-.optie.goed .vink { border-color: var(--go-groen); background: var(--go-groen); color: #fff; }
+.optie.goed { border-color: var(--go-goed); background: var(--go-goed-licht); }
+.optie.goed .vink { border-color: var(--go-goed); background: var(--go-goed); color: #fff; }
 .optie.fout { border-color: var(--go-rood); background: var(--go-rood-licht); }
 .optie.fout .vink { border-color: var(--go-rood); background: var(--go-rood); color: #fff; }
 
@@ -498,7 +509,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
   font-size: 0.92rem;
   line-height: 1.55;
 }
-.uitslag.goed { background: var(--go-groen-licht); color: var(--go-groen-donker); }
+.uitslag.goed { background: var(--go-goed-licht); color: var(--go-goed-donker); }
 .uitslag.fout { background: var(--go-rood-licht); color: var(--go-rood); }
 
 /* koppelvraag en sorteeropdracht */
@@ -587,7 +598,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
   border-top: 1px solid var(--go-rood-licht);
   font-size: 0.85rem;
   line-height: 1.5;
-  color: var(--go-groen-donker);
+  color: var(--go-goed-donker);
 }
 
 /* Met letters past het begrip naast de knoppen; de knoppen vormen zo een
@@ -607,7 +618,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
   .met-letters .keuzerij-tekst { margin-bottom: 0.65rem; }
 }
 
-.keuzerij.goed { border-color: var(--go-groen); background: var(--go-groen-licht); }
+.keuzerij.goed { border-color: var(--go-goed); background: var(--go-goed-licht); }
 .keuzerij.fout { border-color: var(--go-rood); background: var(--go-rood-licht); }
 .keuzerij.fout .keuzeknop[aria-pressed="true"] { border-color: var(--go-rood); background: var(--go-rood); }
 .keuzerij.fout .keuzerij-correctie { border-top-color: rgba(192, 57, 43, 0.25); }
@@ -958,3 +969,11 @@ figure.insluiting figcaption a { color: var(--go-groen-donker); }
 }
 .extern-voorbeeld strong { display: block; font-size: 0.95rem; font-weight: 600; line-height: 1.4; }
 .extern-voorbeeld .bron { display: block; margin-top: 0.2rem; font-size: 0.8rem; color: var(--go-tekst-2); }
+
+/* Koppen in het koplettertype van het designsjabloon. Staat onderaan, zodat het
+   de gewichten van de afzonderlijke koppen hierboven overschrijft. */
+.hero h1, .module-kaart h2, .moduletitel h1, .blok h2, .blok h3, .blok h4,
+.afronding h2, .tijdlijn h3, .stappenplan h3 {
+  font-family: var(--go-font-kop);
+  font-weight: var(--go-kop-gewicht);
+}

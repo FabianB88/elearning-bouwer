@@ -209,6 +209,22 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .module-item .mini { display: flex; gap: 0; opacity: 0; }
 .module-item:hover .mini, .module-item.actief .mini, .module-item:focus-within .mini { opacity: 1; }
 .knoprij { display: flex; gap: 8px; flex-wrap: wrap; }
+.sectie .hulp { font-size: 11.5px; color: var(--tekst-3); line-height: 1.45; }
+.sectie .hulp.let-op { color: var(--waarschuwing); }
+
+/* Designsjablonen: een staaltje met achtergrond, accent en tekstkleur. */
+.sjablonen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.sjabloon { display: grid; gap: 2px; align-content: start; text-align: left; padding: 7px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--paneel); min-width: 0; }
+.sjabloon:hover { border-color: var(--accent); }
+.sjabloon[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-zacht); box-shadow: inset 0 0 0 1px var(--accent); }
+.sjabloon strong { font-size: 12.5px; font-weight: 600; }
+.sjabloon small { font-size: 11px; color: var(--tekst-3); line-height: 1.35; }
+.staal { display: flex; gap: 4px; height: 24px; padding: 4px; margin-bottom: 4px; border: 1px solid; border-radius: 6px; box-sizing: border-box; }
+.staal i { border-radius: 3px; }
+.staal i:first-child { flex: 3; }
+.staal i:last-child { flex: 1; }
+.kleurrij { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kleurrij input[type="color"] { width: 40px; height: 30px; padding: 2px; border: 1px solid var(--lijn); border-radius: 7px; background: var(--paneel); cursor: pointer; }
 
 /* ---------------------------------------------------------------- editor */
 .baan-editor { padding-block: 22px 120px; padding-left: max(16px, 3vw); padding-right: max(16px, 3vw); }
