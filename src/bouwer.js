@@ -320,7 +320,7 @@
   };
 
   var THEMAS = {
-    minor: { naam: 'Minor CE', uitleg: 'Warm wit met saliegroen', letter: 'inter', kleuren: {} },
+    minor: { naam: 'Green', uitleg: 'Warm wit met saliegroen', letter: 'inter', kleuren: {} },
     /* Kleuren uit de HAN-huisstijl (blog3.han.nl/huisstijl): HAN-rood #E50056,
        zwart, wit en de grijzen Alabaster, Mercury, Gray, Boulder en Mineshaft.
        Letter: Avenir Next; waar die ontbreekt Roboto, het HAN-alternatief voor digitaal. */
