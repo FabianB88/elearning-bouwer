@@ -55,7 +55,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--tekst);
@@ -86,11 +86,23 @@ h1, h2, h3 { font-family: var(--f-kop); letter-spacing: -0.01em; text-wrap: bala
 .merk-teken { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--op-accent); display: grid; place-items: center; }
 .cursuskeuze { min-width: 0; flex: 1 1 220px; max-width: 360px; }
 .cursuskeuze select { width: 100%; }
-.status { font-size: 12px; color: var(--tekst-2); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--tekst-3); }
+/* De status is ook de knop naar 'waar staat mijn werk'. */
+.status { font: inherit; font-size: 12px; color: var(--tekst-2); display: flex; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; max-width: 340px; padding: 5px 9px; border: 1px solid transparent; border-radius: 999px; background: none; cursor: pointer; }
+.status:hover { border-color: var(--lijn); background: var(--vlak); }
+.status-tekst { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Vanaf tabletbreedte één regel: keuzelijst en status krimpen, de knoppen niet. */
+@media (min-width: 900px) {
+  .bovenbalk { flex-wrap: nowrap; }
+  .cursuskeuze { flex: 1 1 160px; min-width: 140px; }
+  .status { flex: 0 1 auto; }
+  .bovenbalk .acties { flex: 0 0 auto; flex-wrap: nowrap; }
+}
+.status::before { content: ""; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--tekst-3); }
 .status[data-soort="ok"]::before { background: var(--accent); }
 .status[data-soort="bezig"]::before { background: var(--waarschuwing); }
 .status[data-soort="fout"]::before { background: var(--gevaar); }
+.status[data-soort="let"] { color: var(--waarschuwing); font-weight: 600; background: var(--waarschuwing-zacht); border-color: var(--waarschuwing); }
+.status[data-soort="let"]::before { background: var(--waarschuwing); }
 .bovenbalk .acties { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ---------------------------------------------------------------- knoppen en velden */
@@ -137,14 +149,51 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .schakel input { width: 16px; height: 16px; accent-color: var(--accent); }
 
 /* ---------------------------------------------------------------- werkruimte */
+/* De zijbanen klap je in tot een smalle strook of sleep je breder; de breedtes
+   zet bouwer.js als --baan-l en --baan-r. */
 .werk {
   flex: 1 1 auto; min-height: 0;
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) minmax(380px, 40%);
+  display: grid; position: relative;
+  grid-template-columns: var(--baan-l, 280px) minmax(0, 1fr) var(--baan-r, minmax(380px, 40%));
 }
-.baan { min-height: 0; overflow: auto; }
-.baan-structuur { background: var(--paneel); border-right: 1px solid var(--lijn); }
-.baan-voorbeeld { display: flex; flex-direction: column; border-left: 1px solid var(--lijn); background: var(--vlak); overflow: hidden; }
+.werk.slepen { cursor: col-resize; user-select: none; }
+.baan { min-height: 0; overflow: auto; grid-row: 1; }
+.baan-structuur { grid-column: 1; background: var(--paneel); border-right: 1px solid var(--lijn); }
+.baan-editor { grid-column: 2; }
+.baan-voorbeeld { grid-column: 3; display: flex; flex-direction: column; border-left: 1px solid var(--lijn); background: var(--vlak); overflow: hidden; }
+
+.rail { display: none; grid-row: 1; min-height: 0; overflow: auto; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0; background: var(--paneel); }
+.rail-links { grid-column: 1; border-right: 1px solid var(--lijn); }
+.rail-rechts { grid-column: 3; border-left: 1px solid var(--lijn); background: var(--vlak); }
+.rail-label { writing-mode: vertical-rl; background: none; border: 0; padding: 8px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 700; color: var(--tekst-2); }
+.rail-label:hover { color: var(--accent-sterk); }
+.rail-modules { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+.rail-modules button { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; padding: 0; font-size: 11px; font-weight: 700; background: var(--vlak); color: var(--tekst-2); border: 1px solid var(--lijn); }
+.rail-modules button:hover { border-color: var(--accent); }
+.rail-modules button.actief { background: var(--accent); border-color: var(--accent); color: var(--op-accent); }
+
+.sleep { display: none; position: absolute; top: 0; bottom: 0; width: 9px; z-index: 6; cursor: col-resize; touch-action: none; }
+.sleep::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: transparent; }
+.sleep:hover::after, .sleep:focus-visible::after, .werk.slepen .sleep::after { left: 3px; width: 3px; background: var(--accent); }
+.sleep:focus-visible { outline: none; }
+.sleep-links { left: calc(var(--baan-l, 280px) - 5px); }
+.sleep-rechts { right: calc(var(--baan-r, 40%) - 5px); }
+
+.paneel-knoppen { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--paneel); }
+.paneel-knoppen .icoonknop[aria-pressed="true"] { color: var(--accent-sterk); background: var(--accent-zacht); }
+
+@media (min-width: 761px) {
+  .werk[data-links="dicht"] .baan-structuur { display: none; }
+  .werk[data-links="dicht"] .rail-links { display: flex; }
+  .sleep-links { display: block; }
+}
+@media (min-width: 1181px) {
+  .werk[data-rechts="dicht"] .baan-voorbeeld { display: none; }
+  .werk[data-rechts="dicht"] .rail-rechts { display: flex; }
+  .sleep-rechts { display: block; }
+  /* Met beide zijbanen dicht krijgt de editor de ruimte. */
+  .werk[data-links="dicht"][data-rechts="dicht"] .editor { max-width: 1000px; }
+}
 .segment-keuze.tabs-smal { display: none; }
 .tabs-smal .alleen-mobiel { display: none; }
 
@@ -288,7 +337,12 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 
 /* ---------------------------------------------------------------- smal */
 @media (max-width: 1180px) {
-  .werk { grid-template-columns: 250px minmax(0, 1fr); }
+  .werk { grid-template-columns: var(--baan-l, 250px) minmax(0, 1fr); }
+  .werk .baan-voorbeeld { grid-column: 2; }
+  #paneel-rechts { display: none; }
+  /* Bovenbalk op één regel houden: Opslaan en Openen alleen als icoon. */
+  #knop-openen, #knop-opslaan { padding-inline: 10px; }
+  #knop-openen .lbl, #knop-opslaan .lbl, .merk-naam { display: none; }
   .werk[data-tab="voorbeeld"] .baan-editor { display: none; }
   .werk:not([data-tab="voorbeeld"]) .baan-voorbeeld { display: none; }
   .werk .baan-voorbeeld { border-left: 0; }
@@ -296,6 +350,8 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 }
 @media (max-width: 760px) {
   .werk { grid-template-columns: minmax(0, 1fr); }
+  .werk .baan-structuur, .werk .baan-editor, .werk .baan-voorbeeld { grid-column: 1; }
+  .paneel-knoppen { display: none; }
   .tabs-smal .alleen-mobiel { display: inline-block; }
   .werk .baan-structuur { display: none; border-right: 0; }
   .werk[data-tab="structuur"] .baan-structuur { display: block; }
@@ -304,9 +360,11 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
   .bovenbalk .acties { margin-left: 0; width: 100%; flex-wrap: nowrap; }
   .bovenbalk .acties .tabs-smal { flex: 1 1 auto; }
   .bovenbalk .acties .tabs-smal button { flex: 1 1 0; padding-inline: 6px; }
-  #knop-openen { padding-inline: 10px; }
+  #knop-openen, #knop-opslaan { padding-inline: 10px; }
+  #knop-openen .lbl, #knop-opslaan .lbl, #knop-export .lbl { display: none; }
+  #knop-export { padding-inline: 12px; }
   .cursuskeuze { flex: 1 1 0; max-width: none; }
-  .status { order: 4; width: 100%; font-size: 11px; }
+  .status { order: 4; width: 100%; max-width: none; font-size: 11px; justify-content: flex-start; }
   .twee, .reeks-rij.drie { grid-template-columns: minmax(0, 1fr); }
   .beeld-kies { grid-template-columns: minmax(0, 1fr); }
   .merk-naam { display: none; }
@@ -318,22 +376,32 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
   <header class="bovenbalk">
     <div class="merk"><span class="merk-teken" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V6a2 2 0 0 1 2-2h12v13H6a2 2 0 0 0-2 2Z"/><path d="M4 19a2 2 0 0 0 2 2h12v-4"/><path d="M9 8h5M9 11h4"/></svg></span><span class="merk-naam">E-learning Bouwer</span></div>
     <div class="cursuskeuze"><label class="veldlabel" for="cursus-keuze" hidden>E-learning</label><select id="cursus-keuze" aria-label="Kies een e-learning"></select></div>
-    <span class="status" id="status" data-soort="">Voorbeeld</span>
+    <button type="button" class="status" id="status" data-soort="" title="Waar staat mijn werk?"><span class="status-tekst">Voorbeeld</span></button>
     <div class="acties">
       <span class="segment-keuze tabs-smal" id="tabs-smal" role="group" aria-label="Weergave">
         <button type="button" data-tab="structuur" class="alleen-mobiel">Structuur</button>
         <button type="button" data-tab="bewerken" aria-pressed="true">Bewerken</button>
         <button type="button" data-tab="voorbeeld">Voorbeeld</button>
       </span>
-      <button type="button" class="knop" id="knop-openen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Openen</button>
-      <button type="button" class="knop primair" id="knop-export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Exporteren</button>
+      <span class="paneel-knoppen" role="group" aria-label="Indeling">
+        <button type="button" class="icoonknop" id="paneel-links" aria-pressed="true" title="Structuur in- of uitklappen (Alt+1)" aria-label="Structuur in- of uitklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+        <button type="button" class="icoonknop" id="paneel-focus" aria-pressed="false" title="Focus: alleen de editor (Alt+0)" aria-label="Focus op de editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></svg></button>
+        <button type="button" class="icoonknop" id="paneel-rechts" aria-pressed="true" title="Voorbeeld in- of uitklappen (Alt+2)" aria-label="Voorbeeld in- of uitklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
+      </span>
+      <button type="button" class="knop" id="knop-opslaan" title="Opslaan als bestand op je computer (Ctrl+S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/></svg><span class="lbl">Opslaan</span></button>
+      <button type="button" class="knop" id="knop-openen" title="Een bouwbestand of geëxporteerde e-learning openen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span class="lbl">Openen</span></button>
+      <button type="button" class="knop primair" id="knop-export" title="Exporteren als webpagina, SCORM-pakket of bouwbestand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="lbl">Exporteren</span></button>
     </div>
     <input type="file" id="bestand-openen" accept=".json,.html,.htm,application/json,text/html" hidden>
   </header>
 
   <div class="werk" id="werk" data-tab="bewerken">
     <aside class="baan baan-structuur" id="structuur" aria-label="Opbouw van de e-learning"></aside>
+    <nav class="rail rail-links" id="rail-links" aria-label="Structuur (ingeklapt)"></nav>
+    <div class="sleep sleep-links" id="sleep-links" role="separator" aria-orientation="vertical" aria-label="Breedte van de structuur. Sleep, of gebruik de pijltjestoetsen; Enter klapt in of uit." tabindex="0"></div>
     <main class="baan baan-editor" id="editor-baan"><div class="editor" id="editor"></div></main>
+    <div class="sleep sleep-rechts" id="sleep-rechts" role="separator" aria-orientation="vertical" aria-label="Breedte van het voorbeeld. Sleep, of gebruik de pijltjestoetsen; Enter klapt in of uit." tabindex="0"></div>
+    <div class="rail rail-rechts" id="rail-rechts"></div>
     <section class="baan baan-voorbeeld" aria-label="Voorbeeld">
       <div class="voorbeeld-balk">
         <span class="label">Voorbeeld</span>
@@ -2483,6 +2551,9 @@ function Speler(root, cursus, opts) {
     weg: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     kruis: '<path d="M6 6l12 12M18 6 6 18"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    paneelL: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+    paneelR: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+    schijf: '<path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/>',
     ster: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
     let: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>'
   };
@@ -3165,11 +3236,32 @@ function Speler(root, cursus, opts) {
       h('div', { class: 'sectie-kop' }, h('h2', null, 'Bewaren en delen')),
       h('p', { class: 'hulp', style: 'margin:0 0 12px;font-size:12px;line-height:1.5;color:var(--tekst-2)', text: opslagUitleg() }),
       h('div', { class: 'knoprij' },
+        h('button', { type: 'button', class: 'knop klein' + (Bestand.gekoppeld() ? '' : ' primair'), onclick: function () { Bestand.opslaan(); } }, ico('schijf'), Bestand.gekoppeld() ? 'Nu opslaan' : 'Opslaan als bestand'),
+        Bestand.gekoppeld() && Bestand.kan() ? h('button', { type: 'button', class: 'knop klein', onclick: function () { Bestand.opslaan(true); } }, 'Ander bestand') : null,
         h('button', { type: 'button', class: 'knop klein', onclick: dialoogExport }, 'Exporteren'),
         h('button', { type: 'button', class: 'knop klein', onclick: dupliceerCursus }, 'Kopie maken'),
         verwijderKnop('E-learning verwijderen', verwijderCursus)));
 
     baan.append(meta, modules, beheer);
+    renderRail();
+  }
+
+  /* De ingeklapte structuur: uitklappen, en snel van module wisselen. */
+  function renderRail() {
+    var rail = $('#rail-links');
+    if (!rail) return;
+    rail.innerHTML = '';
+    rail.append(
+      icoonknop('paneelL', 'Structuur uitklappen (Alt+1)', function () { Panelen.zet('links', true); }),
+      h('button', { type: 'button', class: 'rail-label', title: 'Structuur uitklappen (Alt+1)', onclick: function () { Panelen.zet('links', true); } }, 'Structuur'),
+      h('ol', { class: 'rail-modules', 'aria-label': 'Modules' }, S.cursus.lessons.map(function (l, i) {
+        return h('li', null, h('button', {
+          type: 'button', class: l.id === S.lesId ? 'actief' : '',
+          title: (i + 1) + '. ' + (l.title || 'Module ' + (i + 1)),
+          'aria-current': l.id === S.lesId ? 'true' : null,
+          onclick: function () { kiesModule(l.id); }
+        }, String(i + 1)));
+      })));
   }
 
   function verwijderKnop(label, actie) {
@@ -3606,7 +3698,11 @@ function Speler(root, cursus, opts) {
     bezigMetBewaren = Opslag.bewaar(c, vuil, weg).then(function (plek) {
       ls('bouwer:laatste', c.id);
       if (plek === 'fout') zetStatus('Niet opgeslagen: exporteer als bouwbestand', 'fout');
-      else zetStatus(plek === 'account' ? 'Opgeslagen in je account' : 'Opgeslagen in deze browser', 'ok');
+      else statusOpgeslagen();
+      if (plek === 'browser' && !Bestand.gekoppeld() && !ls('bouwer:uitleg-browser')) {
+        try { ls('bouwer:uitleg-browser', '1'); } catch (e) { /* geen opslag */ }
+        melding('Je werk staat alleen in deze browser. Maak met Opslaan een bestand op je computer; daar komt dan elke 15 minuten een back-up in.', { tekst: 'Opslaan', doe: function () { Bestand.opslaan(); } });
+      }
       if (!S.lijst.some(function (x) { return x.id === c.id; })) S.lijst.unshift({ id: c.id, title: c.title, updatedAt: c.updatedAt, plek: plek });
       S.lijst.forEach(function (x) { if (x.id === c.id) x.title = c.title; });
       renderKeuze();
@@ -3621,13 +3717,34 @@ function Speler(root, cursus, opts) {
 
   function zetStatus(tekst, soort) {
     var s = $('#status');
-    s.textContent = tekst;
+    s.innerHTML = '';
+    s.append(h('span', { class: 'status-tekst', text: tekst }));
     s.setAttribute('data-soort', soort || '');
   }
 
+  /* Na het opslaan: zeg waar het werk nu staat. Alleen in de browser is een waarschuwing waard. */
+  function statusOpgeslagen() {
+    var c = S.cursus;
+    if (c.voorbeeld) return zetStatus('Voorbeeld: wijzigingen maken een eigen kopie', '');
+    var bestand = Bestand.gekoppeld() ? Bestand.naam() + ' · ' + tijdstip(Bestand.laatst()) : '';
+    if (Opslag.modus === 'account') return zetStatus('Opgeslagen in je account' + (bestand ? ' en in ' + bestand : ''), 'ok');
+    if (bestand) return zetStatus('In deze browser en in ' + bestand, 'ok');
+    zetStatus('Alleen in deze browser opgeslagen' + (Bestand.laatst() ? ' · kopie gedownload om ' + tijdstip(Bestand.laatst()) : ''), 'let');
+  }
+  function tijdstip(t) {
+    if (!t) return 'nog niet';
+    var d = new Date(t);
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+
   function opslagUitleg() {
-    if (Opslag.modus === 'account') return 'Je werk wordt automatisch bewaard in je account, alleen zichtbaar voor jou. Exporteer om het te publiceren of te delen.';
-    if (Opslag.modus === 'browser') return 'Je werk wordt bewaard in deze browser. Exporteer regelmatig een bouwbestand, zodat je het niet kwijtraakt.';
+    var bestand = Bestand.gekoppeld()
+      ? ' Er staat ook een kopie in het bestand ' + Bestand.naam() + ' op je computer (laatst om ' + tijdstip(Bestand.laatst()) + '). Daar komt elke 15 minuten automatisch een back-up in als je iets hebt gewijzigd.'
+      : Bestand.kan()
+        ? ' Druk op Opslaan om een bestand op je computer te maken. Daarna zet de bouwer daar elke 15 minuten automatisch een back-up in.'
+        : ' Druk op Opslaan om een bouwbestand te downloaden. Elke 15 minuten krijg je een herinnering als er iets is gewijzigd.';
+    if (Opslag.modus === 'account') return 'Je werk wordt automatisch bewaard in je account, alleen zichtbaar voor jou.' + bestand;
+    if (Opslag.modus === 'browser') return 'Je werk staat alleen in deze browser. Wis je je browsergegevens, of werk je in een andere browser of op een andere computer, dan zie je het hier niet terug.' + bestand;
     return 'Opslag wordt geladen…';
   }
 
@@ -3658,8 +3775,9 @@ function Speler(root, cursus, opts) {
     S.vbModule = undefined;
     S.vuil = {};
     S.verwijderdeLessen = [];
+    Bestand.wissel(c);
     renderAlles();
-    zetStatus(c.voorbeeld ? 'Voorbeeld: wijzigingen maken een eigen kopie' : (Opslag.modus === 'account' ? 'Opgeslagen in je account' : 'Opgeslagen in deze browser'), c.voorbeeld ? '' : 'ok');
+    statusOpgeslagen();
   }
 
   function bewaarEerst() {
@@ -3938,7 +4056,9 @@ function Speler(root, cursus, opts) {
 
   /* ================================================================ openen */
 
-  function openBestand(file) {
+  /* Met een handvat (geopend via de bestandskiezer van de browser) slaat Opslaan
+     daarna terug op in hetzelfde bouwbestand. */
+  function openBestand(file, handvat) {
     file.text().then(function (tekst) {
       var data;
       if (/^\s*</.test(tekst)) {
@@ -3951,8 +4071,10 @@ function Speler(root, cursus, opts) {
       if (!data || !Array.isArray(data.lessons)) throw new Error('Dit bestand bevat geen e-learning.');
       var c = normaliseerCursus(data, { nieuwId: true });
       c.updatedAt = Date.now();
+      var bouwbestand = !/^\s*</.test(tekst);
       return bewaarEerst().then(function () {
         wissel(c);
+        if (handvat && bouwbestand) Bestand.koppel(handvat, c);
         S.vuil['*'] = 1;
         bewaarNu();
         var kapot = controleer(c).filter(function (p) { return /afbeelding niet gevonden/.test(p); }).length;
@@ -4160,6 +4282,295 @@ function Speler(root, cursus, opts) {
     });
   }
 
+  /* ================================================================ indeling */
+
+  /* Structuur links en voorbeeld rechts klap je in tot een smalle strook of
+     sleep je breder, zodat het midden ruim wordt. De browser onthoudt het. */
+  var Panelen = (function () {
+    var RAIL = 44, MIN_LINKS = 220, MAX_LINKS = 440, MIN_RECHTS = 320, MIN_MIDDEN = 420, DICHT_ONDER = 150;
+    var P = { links: 280, rechts: 0, linksOpen: true, rechtsOpen: true };
+    var voorFocus = null;
+    try { var bewaard = JSON.parse(ls('bouwer:indeling') || 'null'); if (bewaard) Object.keys(P).forEach(function (k) { if (typeof bewaard[k] === typeof P[k]) P[k] = bewaard[k]; }); } catch (e) { /* standaard */ }
+
+    function breed() { return window.matchMedia('(min-width: 1181px)').matches; }
+    function werkBreedte() { return $('#werk').clientWidth || window.innerWidth; }
+    function maxRechts() { return Math.max(MIN_RECHTS, werkBreedte() - (P.linksOpen ? P.links : RAIL) - MIN_MIDDEN); }
+    function klem(x, lo, hi) { return Math.min(Math.max(x, lo), hi); }
+    function inFocus() { return !P.linksOpen && (!P.rechtsOpen || !breed()); }
+
+    function toon() {
+      var werk = $('#werk');
+      var rechts = klem(P.rechts || Math.max(380, Math.round(werkBreedte() * 0.4)), MIN_RECHTS, maxRechts());
+      werk.style.setProperty('--baan-l', (P.linksOpen ? klem(P.links, MIN_LINKS, MAX_LINKS) : RAIL) + 'px');
+      werk.style.setProperty('--baan-r', (P.rechtsOpen ? rechts : RAIL) + 'px');
+      werk.setAttribute('data-links', P.linksOpen ? 'open' : 'dicht');
+      werk.setAttribute('data-rechts', P.rechtsOpen ? 'open' : 'dicht');
+      $('#paneel-links').setAttribute('aria-pressed', String(P.linksOpen));
+      $('#paneel-rechts').setAttribute('aria-pressed', String(P.rechtsOpen));
+      $('#paneel-focus').setAttribute('aria-pressed', String(inFocus()));
+    }
+    function bewaar() {
+      try { ls('bouwer:indeling', JSON.stringify(P)); } catch (e) { /* alleen voor deze sessie */ }
+    }
+    function zet(kant, open) {
+      if (kant === 'links') P.linksOpen = open; else P.rechtsOpen = open;
+      voorFocus = null;
+      toon();
+      bewaar();
+    }
+    function wissel(kant) { zet(kant, !(kant === 'links' ? P.linksOpen : P.rechtsOpen)); }
+    function focus() {
+      if (inFocus()) {
+        var v = voorFocus || { l: true, r: true };
+        P.linksOpen = v.l; P.rechtsOpen = v.r;
+        voorFocus = null;
+      } else {
+        voorFocus = { l: P.linksOpen, r: P.rechtsOpen };
+        P.linksOpen = false;
+        if (breed()) P.rechtsOpen = false;
+      }
+      toon();
+      bewaar();
+    }
+
+    /* Slepen aan de rand; smaller dan DICHT_ONDER klapt de baan in. */
+    function sleepbaar(greep, kant) {
+      greep.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        greep.setPointerCapture(e.pointerId);
+        var werk = $('#werk');
+        var rand = werk.getBoundingClientRect();
+        /* Dichtgesleept gaat de baan later weer open op de breedte van voor het slepen. */
+        var begin = kant === 'links' ? P.links : P.rechts;
+        werk.classList.add('slepen');
+        function beweeg(ev) {
+          var b = kant === 'links' ? ev.clientX - rand.left : rand.right - ev.clientX;
+          var open = b >= DICHT_ONDER;
+          if (kant === 'links') { P.linksOpen = open; P.links = open ? klem(b, MIN_LINKS, MAX_LINKS) : begin; }
+          else { P.rechtsOpen = open; P.rechts = open ? klem(b, MIN_RECHTS, maxRechts()) : begin; }
+          voorFocus = null;
+          toon();
+        }
+        function los() {
+          greep.removeEventListener('pointermove', beweeg);
+          greep.removeEventListener('pointerup', los);
+          greep.removeEventListener('pointercancel', los);
+          werk.classList.remove('slepen');
+          bewaar();
+        }
+        greep.addEventListener('pointermove', beweeg);
+        greep.addEventListener('pointerup', los);
+        greep.addEventListener('pointercancel', los);
+      });
+      greep.addEventListener('dblclick', function () {
+        if (kant === 'links') { P.links = 280; P.linksOpen = true; } else { P.rechts = 0; P.rechtsOpen = true; }
+        toon();
+        bewaar();
+      });
+      greep.addEventListener('keydown', function (e) {
+        var stap = e.shiftKey ? 80 : 24;
+        var groter = kant === 'links' ? 'ArrowRight' : 'ArrowLeft';
+        var kleiner = kant === 'links' ? 'ArrowLeft' : 'ArrowRight';
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wissel(kant); return; }
+        if (e.key !== groter && e.key !== kleiner) return;
+        e.preventDefault();
+        var d = e.key === groter ? stap : -stap;
+        if (kant === 'links') { P.linksOpen = true; P.links = klem(P.links + d, MIN_LINKS, MAX_LINKS); }
+        else { P.rechtsOpen = true; P.rechts = klem((P.rechts || Math.round(werkBreedte() * 0.4)) + d, MIN_RECHTS, maxRechts()); }
+        toon();
+        bewaar();
+      });
+    }
+
+    function start() {
+      $('#paneel-links').addEventListener('click', function () { wissel('links'); });
+      $('#paneel-rechts').addEventListener('click', function () { wissel('rechts'); });
+      $('#paneel-focus').addEventListener('click', focus);
+      sleepbaar($('#sleep-links'), 'links');
+      sleepbaar($('#sleep-rechts'), 'rechts');
+      $('#rail-rechts').append(
+        icoonknop('paneelR', 'Voorbeeld uitklappen (Alt+2)', function () { zet('rechts', true); }),
+        h('button', { type: 'button', class: 'rail-label', title: 'Voorbeeld uitklappen (Alt+2)', onclick: function () { zet('rechts', true); } }, 'Voorbeeld'));
+      var wacht = 0;
+      window.addEventListener('resize', function () { cancelAnimationFrame(wacht); wacht = requestAnimationFrame(toon); });
+      toon();
+    }
+
+    return { start: start, zet: zet, wissel: wissel, focus: focus, breed: breed };
+  })();
+
+  /* ================================================================ bestand op je computer */
+
+  /* Opslaan maakt de eerste keer een bouwbestand op je computer en werkt dat
+     daarna bij. Zolang er wijzigingen zijn, komt er elke 15 minuten vanzelf een
+     back-up in. Browsers zonder bestandstoegang (Firefox, Safari, het artifact)
+     downloaden een kopie en krijgen een herinnering in plaats van een back-up. */
+  var Bestand = (function () {
+    var KWARTIER = 15 * 60 * 1000;
+    var B = { handvat: null, cursusId: null, laatst: 0, versie: 0, sinds: Date.now(), herinnerd: 0 };
+    var kan = typeof window.showSaveFilePicker === 'function' && (function () { try { return window.top === window.self; } catch (e) { return false; } })();
+
+    /* Handvatten blijven in IndexedDB bewaard, zodat een herladen pagina het bestand nog kent. */
+    var dbBelofte = null;
+    function idb(modus, fn) {
+      if (!dbBelofte) dbBelofte = new Promise(function (ok, nee) {
+        var r = indexedDB.open('elearning-bouwer', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore('bestanden'); };
+        r.onsuccess = function () { ok(r.result); };
+        r.onerror = function () { nee(r.error); };
+      });
+      return dbBelofte.then(function (db) {
+        return new Promise(function (ok, nee) {
+          var tx = db.transaction('bestanden', modus);
+          var req = fn(tx.objectStore('bestanden'));
+          tx.oncomplete = function () { ok(req.result); };
+          tx.onerror = function () { nee(tx.error); };
+        });
+      });
+    }
+    function idbLees(id) { try { return idb('readonly', function (s) { return s.get(id); }).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); } }
+    function idbZet(id, h) { try { return idb('readwrite', function (s) { return s.put(h, id); }).catch(function () {}); } catch (e) { return Promise.resolve(); } }
+
+    function meta(id, waarde) {
+      if (arguments.length === 1) { try { return JSON.parse(ls('bouwer:bestand:' + id) || 'null'); } catch (e) { return null; } }
+      try { ls('bouwer:bestand:' + id, JSON.stringify(waarde)); } catch (e) { /* niet erg */ }
+    }
+
+    function gekoppeld() { return !!(B.handvat && S.cursus && B.cursusId === S.cursus.id); }
+
+    function wisselCursus(c) {
+      B.handvat = null; B.cursusId = null; B.laatst = 0; B.versie = 0; B.herinnerd = 0;
+      B.sinds = Date.now();
+      if (!kan || c.voorbeeld) return;
+      var id = c.id;
+      idbLees(id).then(function (h) {
+        if (!h || !S.cursus || S.cursus.id !== id || B.handvat) return;
+        var m = meta(id) || {};
+        B.handvat = h; B.cursusId = id; B.laatst = m.laatst || 0; B.versie = m.versie || 0;
+        statusNa();
+      });
+    }
+
+    function koppel(h, c) {
+      B.handvat = h; B.cursusId = c.id; B.laatst = Date.now(); B.versie = c.updatedAt || 0;
+      idbZet(c.id, h);
+      meta(c.id, { laatst: B.laatst, versie: B.versie });
+    }
+
+    function toestemming(h, vragen) {
+      if (!h.queryPermission) return Promise.resolve(h);
+      var o = { mode: 'readwrite' };
+      return h.queryPermission(o).then(function (s) {
+        if (s === 'granted') return h;
+        if (!vragen) return null;
+        return h.requestPermission(o).then(function (s2) { return s2 === 'granted' ? h : null; });
+      }).catch(function () { return null; });
+    }
+
+    function inhoud() {
+      var c = spelerCursus();
+      delete c.voorbeeld;
+      return JSON.stringify(c, null, 2);
+    }
+
+    function schrijf(h) {
+      var versie = S.cursus.updatedAt || 0;
+      var tekst = inhoud();
+      return h.createWritable().then(function (w) {
+        return w.write(tekst).then(function () { return w.close(); });
+      }).then(function () {
+        B.laatst = Date.now(); B.versie = versie;
+        meta(S.cursus.id, { laatst: B.laatst, versie: B.versie });
+        statusNa();
+      });
+    }
+
+    function statusNa() {
+      if (!bezigMetBewaren && !Object.keys(S.vuil).length) statusOpgeslagen();
+      /* Niet hertekenen terwijl iemand in de structuur typt. */
+      if (!$('#structuur').contains(document.activeElement)) renderStructuur();
+    }
+
+    function download() {
+      var versie = S.cursus.updatedAt || 0;
+      return exporteer('json').then(function () {
+        B.laatst = Date.now(); B.versie = versie; B.herinnerd = Date.now();
+        statusNa();
+      });
+    }
+
+    /* Op een klik of Ctrl+S. kiesNieuw: altijd een (ander) bestand laten kiezen. */
+    function opslaan(kiesNieuw) {
+      var c = S.cursus;
+      if (c.voorbeeld) gewijzigd('*');
+      c = S.cursus;
+      if (!kan) return download();
+      var bestaand = !kiesNieuw && gekoppeld() ? toestemming(B.handvat, true) : Promise.resolve(null);
+      var nieuwGekozen = false;
+      return bestaand.then(function (h) {
+        if (h) return h;
+        return window.showSaveFilePicker({
+          suggestedName: slug(c.title) + '.json',
+          types: [{ description: 'Bouwbestand e-learning', accept: { 'application/json': ['.json'] } }]
+        }).then(function (nieuw) { koppel(nieuw, c); nieuwGekozen = true; return nieuw; });
+      }).then(function (h) {
+        return schrijf(h).then(function () {
+          melding(nieuwGekozen ? 'Opgeslagen in ' + h.name + '. Zolang je wijzigt, komt daar elke 15 minuten automatisch een back-up in.' : 'Opgeslagen in ' + h.name + '.');
+        });
+      }).catch(function (e) {
+        if (e && e.name === 'AbortError') return;
+        if (e && e.name === 'SecurityError') { kan = false; return download(); }
+        melding('Opslaan in een bestand lukte niet. Er wordt een kopie gedownload.');
+        return download();
+      });
+    }
+
+    /* Elke minuut kijken of er een kwartier voorbij is sinds het bestand is bijgewerkt. */
+    function tik() {
+      var c = S.cursus;
+      if (!c || c.voorbeeld || (c.updatedAt || 0) <= B.versie) return;
+      var nu = Date.now();
+      if (nu - Math.max(B.laatst, B.sinds, B.herinnerd) < KWARTIER) return;
+      if (gekoppeld()) {
+        toestemming(B.handvat, false).then(function (h) {
+          if (h) return schrijf(h).catch(herinner);
+          herinner();
+        });
+      } else if (Opslag.modus === 'browser') herinner();
+    }
+    function herinner() {
+      B.herinnerd = Date.now();
+      melding(gekoppeld() ? 'De back-up naar ' + B.handvat.name + ' wacht op je toestemming.' : 'Je werk staat alleen in deze browser. Maak een back-up op je computer.', { tekst: 'Opslaan', doe: function () { opslaan(); } });
+    }
+    setInterval(tik, 60 * 1000);
+
+    return {
+      kan: function () { return kan; },
+      gekoppeld: gekoppeld,
+      naam: function () { return B.handvat ? B.handvat.name : ''; },
+      laatst: function () { return B.laatst; },
+      wissel: wisselCursus,
+      koppel: koppel,
+      opslaan: opslaan
+    };
+  })();
+
+  /* Uitleg bij een klik op de status: waar staat mijn werk? */
+  function dialoogBewaren() {
+    dialoog(function (sluit) {
+      return [
+        h('h2', null, 'Waar staat je werk?'),
+        h('p', null, opslagUitleg()),
+        Opslag.modus === 'browser' ? h('p', null, 'Een bouwbestand kun je altijd weer openen met Openen, ook in een andere browser of op een andere computer.') : null,
+        h('div', { class: 'voet' },
+          h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Sluiten'),
+          Bestand.gekoppeld() && Bestand.kan() ? h('button', { type: 'button', class: 'knop', onclick: function () { sluit(); Bestand.opslaan(true); } }, 'Ander bestand kiezen') : null,
+          h('button', { type: 'button', class: 'knop primair', onclick: function () { sluit(); Bestand.opslaan(); } }, ico('schijf'), Bestand.gekoppeld() ? 'Nu opslaan' : 'Opslaan als bestand'))
+      ];
+    });
+  }
+
   /* ================================================================ alles samen */
 
   function zetTab(tab) {
@@ -4183,7 +4594,32 @@ function Speler(root, cursus, opts) {
       else if (w !== S.cursus.id) openCursus(w);
     });
     $('#knop-export').addEventListener('click', dialoogExport);
-    $('#knop-openen').addEventListener('click', function () { $('#bestand-openen').click(); });
+    $('#knop-opslaan').addEventListener('click', function () { Bestand.opslaan(); });
+    $('#status').addEventListener('click', dialoogBewaren);
+    $('#knop-openen').addEventListener('click', function () {
+      /* Via de bestandskiezer van de browser onthouden we het bestand, zodat Opslaan erin terugschrijft. */
+      if (!Bestand.kan() || typeof window.showOpenFilePicker !== 'function') { $('#bestand-openen').click(); return; }
+      window.showOpenFilePicker({ types: [{ description: 'Bouwbestand of geëxporteerde e-learning', accept: { 'application/json': ['.json'], 'text/html': ['.html', '.htm'] } }] }).then(function (lijst) {
+        var h = lijst[0];
+        return h.getFile().then(function (f) { openBestand(f, /\.json$/i.test(h.name) ? h : null); });
+      }).catch(function (e) { if (!e || e.name !== 'AbortError') $('#bestand-openen').click(); });
+    });
+    Panelen.start();
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        Bestand.opslaan();
+        return;
+      }
+      if (!e.altKey || e.ctrlKey || e.metaKey || document.querySelector('.dialoog-achter')) return;
+      if (e.code === 'Digit1') { e.preventDefault(); Panelen.wissel('links'); }
+      else if (e.code === 'Digit2') {
+        e.preventDefault();
+        if (Panelen.breed()) Panelen.wissel('rechts');
+        else zetTab($('#werk').getAttribute('data-tab') === 'voorbeeld' ? 'bewerken' : 'voorbeeld');
+      }
+      else if (e.code === 'Digit0') { e.preventDefault(); Panelen.focus(); }
+    });
     $('#bestand-openen').addEventListener('change', function (e) {
       var f = e.target.files[0];
       e.target.value = '';

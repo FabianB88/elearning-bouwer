@@ -3,7 +3,7 @@
 Een bouwer voor e-learnings in het format van de [e-learnings van de minor Circulaire Economie](https://github.com/FabianB88/minor-ce-elearnings), zoals *Business Ethics* en *Duurzame waarde*. Je klikt blokken aan en vult ze in, en ziet ze live in dezelfde speler die studenten gebruiken.
 
 - **Claude-artifact** (met opslag in je account en Claude-hulp): https://claude.ai/artifact/RnohLRy2qXGiJBwsbL1ZMK. Het artifact is privé; vraag de eigenaar om toegang als Bijdrager.
-- **Online, zonder account:** https://fabianb88.github.io/elearning-bouwer/. Alles werkt, behalve de Claude-hulp; je werk wordt in je browser bewaard.
+- **Online, zonder account:** https://fabianb88.github.io/elearning-bouwer/. Alles werkt, behalve de Claude-hulp. Je werk staat dan alleen in je browser: maak met **Opslaan** een bestand op je computer.
 - **Los bestand:** open `index.html` in een browser; dat werkt hetzelfde als de online versie.
 
 ## Wat de bouwer kan
@@ -17,6 +17,9 @@ Een bouwer voor e-learnings in het format van de [e-learnings van de minor Circu
   - Meerkeuze (een of meer juiste antwoorden, uitleg per antwoord), koppelvraag, sorteeropdracht.
   - Doorgaan-knop: deelt een module op in stukken; vragen moeten eerst beantwoord zijn.
 - **Waarschuwingen** voor wat nog niet af is, zoals een vraag zonder juist antwoord of een afbeelding zonder alt-tekst.
+- **Indeling:** klap de structuur (links) en het voorbeeld (rechts) in tot een smalle strook, of sleep de randen breder of smaller. De focusknop klapt beide in, zodat de editor het hele scherm krijgt. Sneltoetsen: Alt+1 structuur, Alt+2 voorbeeld, Alt+0 focus. Je indeling wordt onthouden.
+- **Opslaan als bestand (Ctrl+S):** de eerste keer kies je waar het bouwbestand op je computer komt; daarna werkt Opslaan dat bestand bij, en zolang je wijzigt komt er elke 15 minuten automatisch een back-up in. Dat werkt in Chrome en Edge. In Firefox, Safari en het artifact downloadt Opslaan een kopie en krijg je elk kwartier een herinnering. Een bouwbestand dat je via Openen opent, wordt bij Opslaan bijgewerkt.
+- **Waar staat je werk:** de status bovenin zegt het altijd, en is oranje zolang je werk alleen in de browser staat. Klik erop voor uitleg.
 - **Claude** (alleen in het artifact): een module laten opzetten vanuit een onderwerp of brontekst, of kennisvragen laten maken bij een module.
 - **Exporteren:**
   - **Webpagina (.html):** één bestand dat overal werkt, zoals op GitHub Pages of je eigen site. Voortgang wordt in de browser van de student bewaard.
