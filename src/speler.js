@@ -111,6 +111,42 @@ function Speler(root, cursus, opts) {
     return segmenten.filter(function (s) { return s.length; });
   }
 
+  /* In een toets staat elke vraag op een eigen stuk, samen met de blokken
+     die ervoor staan. Met hussel krijgt elke poging een andere volgorde; wat
+     vóór de eerste vraag staat, blijft vooraan. */
+  function segmentenVan(les) {
+    if (!les.toets) return segmenteer(les.blocks);
+    var ms = moduleStaat(les.id);
+    var groepen = [];
+    var los = [];
+    les.blocks.forEach(function (b, gi) {
+      if (b.t === 'continue') return;
+      los.push({ blok: b, gi: gi });
+      if (SCOREBAAR.indexOf(b.t) >= 0 && telbaar(b)) {
+        groepen.push(los);
+        los = [];
+      }
+    });
+    if (les.toets.hussel && groepen.length > 1) {
+      var voor = groepen[0].slice(0, -1);
+      groepen[0] = groepen[0].slice(-1);
+      groepen = husselVolgorde(les.id + ':' + (ms.poging || 0), groepen.length).map(function (i) { return groepen[i]; });
+      groepen[0] = voor.concat(groepen[0]);
+    }
+    if (los.length) {
+      if (groepen.length) groepen[groepen.length - 1] = groepen[groepen.length - 1].concat(los);
+      else groepen.push(los);
+    }
+    return groepen;
+  }
+
+  function slaaggrens(les) {
+    var g = les.toets && les.toets.slagen;
+    if (g === undefined || g === null || g === '') return 70;
+    g = Number(g);
+    return isNaN(g) ? 70 : Math.min(100, Math.max(0, Math.round(g)));
+  }
+
   function vraagId(moduleId, segIndex, blokIndex) {
     return moduleId + ':' + segIndex + ':' + blokIndex;
   }
@@ -142,7 +178,7 @@ function Speler(root, cursus, opts) {
 
     var totaalSeg = 0, gedaanSeg = 0;
     cursus.lessons.forEach(function (les) {
-      var segs = segmenteer(les.blocks).length;
+      var segs = segmentenVan(les).length;
       var ms = moduleStaat(les.id);
       totaalSeg += segs;
       gedaanSeg += Math.min(ms.af ? segs : ms.segment, segs);
@@ -194,7 +230,7 @@ function Speler(root, cursus, opts) {
     if (cursus.intro) lijst.appendChild(el('p', 'intro', cursus.intro));
 
     cursus.lessons.forEach(function (les, i) {
-      var segs = segmenteer(les.blocks).length;
+      var segs = segmentenVan(les).length;
       var ms = moduleStaat(les.id);
       var gedaan = ms.af ? segs : Math.min(ms.segment, segs);
       var pct = segs ? Math.round((gedaan / segs) * 100) : 0;
@@ -207,8 +243,14 @@ function Speler(root, cursus, opts) {
       midden.appendChild(el('h2', null, les.title || 'Module ' + (i + 1)));
       var regel = el('span', 'regel');
       if (les.deadline) regel.appendChild(el('span', 'deadline', 'Afronden vóór ' + les.deadline));
-      regel.appendChild(el('span', null, ms.af ? 'Afgerond' : (gedaan > 0 ? pct + '% gelezen' : segs + (segs === 1 ? ' onderdeel' : ' onderdelen'))));
-      if (gedaan > 0 && !ms.af) {
+      if (les.toets) {
+        regel.appendChild(el('span', 'toets-label', 'Toets'));
+        regel.appendChild(el('span', null, ms.af ? 'Gehaald, ' + (ms.score || 0) + '%'
+          : (ms.score !== undefined ? 'Nog niet gehaald, beste score ' + ms.score + '%' : segs + (segs === 1 ? ' vraag' : ' vragen'))));
+      } else {
+        regel.appendChild(el('span', null, ms.af ? 'Afgerond' : (gedaan > 0 ? pct + '% gelezen' : segs + (segs === 1 ? ' onderdeel' : ' onderdelen'))));
+      }
+      if (gedaan > 0 && !ms.af && !les.toets) {
         var mini = el('span', 'mini-spoor');
         var i2 = el('i');
         i2.style.width = pct + '%';
@@ -235,13 +277,31 @@ function Speler(root, cursus, opts) {
      daar toont de speler een kaart die zegt wat er komt. */
   function externVoorbeeld(soort, titel, url) {
     var k = el('div', 'extern-voorbeeld');
-    k.appendChild(el('span', 'speel', soort === 'video' ? '▶' : '⧉'));
+    k.appendChild(el('span', 'speel', soort === 'video' ? '▶' : soort === 'audio' ? '♪' : '⧉'));
     var t = el('span');
-    t.appendChild(el('strong', null, titel || (soort === 'video' ? 'Video' : 'Ingesloten inhoud')));
+    t.appendChild(el('strong', null, titel || (soort === 'video' ? 'Video' : soort === 'audio' ? 'Audio' : 'Ingesloten inhoud')));
     t.appendChild(el('span', 'bron', (host(url) || url) + ' · speelt af in de geëxporteerde e-learning'));
     k.appendChild(t);
     return k;
   }
+
+  function beeldEl(b) {
+    var img = document.createElement('img');
+    img.decoding = 'async';
+    img.alt = b.alt || '';
+    if (b.w) {
+      img.width = b.w;
+      img.height = b.h;
+    }
+    img.src = b.src;
+    return img;
+  }
+
+  function initialen(naam) {
+    return String(naam).split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+  }
+
+  var NOTITIES = { tip: 'Tip', let: 'Let op', info: 'Goed om te weten', opdracht: 'Opdracht' };
 
   function tekenBlok(blok, moduleId, segIndex, blokIndex, opWijziging) {
     switch (blok.t) {
@@ -482,6 +542,114 @@ function Speler(root, cursus, opts) {
         return fig3;
       }
 
+      case 'imagetext': {
+        if (!blok.src && !blok.heading && !blok.body) return null;
+        var bt = el('div', 'beeld-tekst' + (blok.kant === 'rechts' ? ' rechts' : ''));
+        if (blok.src) {
+          var btFig = el('figure');
+          btFig.appendChild(beeldEl(blok));
+          if (blok.caption) btFig.appendChild(metLinks(el('figcaption'), blok.caption));
+          bt.appendChild(btFig);
+        }
+        var btTekst = el('div', 'blok');
+        if (blok.heading) btTekst.appendChild(el('h2', null, blok.heading));
+        if (blok.body) btTekst.appendChild(html('div', null, blok.body));
+        bt.appendChild(btTekst);
+        return bt;
+      }
+
+      case 'gallery':
+        return tekenGalerij(blok);
+
+      case 'hotspots':
+        return blok.src ? tekenKlikplaat(blok) : null;
+
+      case 'audio': {
+        if (!blok.url) return null;
+        var au = el('figure', 'audio-blok');
+        if (opts.voorbeeld) {
+          au.appendChild(externVoorbeeld('audio', blok.title, blok.url));
+        } else {
+          if (blok.title) au.appendChild(el('div', 'audio-titel', blok.title));
+          var geluid = document.createElement('audio');
+          geluid.controls = true;
+          geluid.preload = 'metadata';
+          geluid.src = blok.url;
+          if (blok.title) geluid.setAttribute('aria-label', blok.title);
+          au.appendChild(geluid);
+        }
+        if (blok.transcript) {
+          var ud = document.createElement('details');
+          ud.className = 'audio-tekst';
+          ud.appendChild(el('summary', null, 'Lees de tekst mee'));
+          ud.appendChild(html('div', null, blok.transcript));
+          au.appendChild(ud);
+        }
+        return au;
+      }
+
+      case 'note': {
+        if (!blok.body) return null;
+        var soort = NOTITIES[blok.soort] ? blok.soort : 'tip';
+        var nt = el('aside', 'notitie notitie-' + soort);
+        nt.appendChild(el('div', 'notitie-label', blok.title || NOTITIES[soort]));
+        nt.appendChild(html('div', 'notitie-tekst', blok.body));
+        return nt;
+      }
+
+      case 'table': {
+        var tRijen = (blok.rows || []).filter(function (r) { return r.some(function (c) { return String(c).trim(); }); });
+        if (!tRijen.length) return null;
+        var tFig = el('figure', 'tabel-blok');
+        var tScroll = el('div', 'tabel-scroll');
+        tScroll.tabIndex = 0;
+        tScroll.setAttribute('role', 'region');
+        tScroll.setAttribute('aria-label', blok.caption || 'Tabel');
+        var tab = el('table');
+        if (blok.caption) tab.appendChild(el('caption', null, blok.caption));
+        var tEerste = 0;
+        if (blok.kop !== false) {
+          var thead = el('thead');
+          var tr0 = el('tr');
+          tRijen[0].forEach(function (c) {
+            var th = el('th', null, c);
+            th.scope = 'col';
+            tr0.appendChild(th);
+          });
+          thead.appendChild(tr0);
+          tab.appendChild(thead);
+          tEerste = 1;
+        }
+        var tbody = el('tbody');
+        tRijen.slice(tEerste).forEach(function (r) {
+          var tr = el('tr');
+          r.forEach(function (c, ci) {
+            var cel = el(ci === 0 && blok.zijkop ? 'th' : 'td');
+            if (ci === 0 && blok.zijkop) cel.scope = 'row';
+            tr.appendChild(metLinks(cel, c));
+          });
+          tbody.appendChild(tr);
+        });
+        tab.appendChild(tbody);
+        tScroll.appendChild(tab);
+        tFig.appendChild(tScroll);
+        return tFig;
+      }
+
+      case 'chart':
+        return tekenGrafiek(blok);
+
+      case 'divider':
+        return el('hr', 'scheiding');
+
+      case 'fill':
+        if (!/\[[^\]]+\]/.test(blok.text || '')) return null;
+        return tekenInvul(blok, moduleId, segIndex, blokIndex, opWijziging);
+
+      case 'scenario':
+        if (!(blok.scenes || []).length) return null;
+        return tekenScenario(blok, moduleId, segIndex, blokIndex, opWijziging);
+
       case 'quiz':
         if (!(blok.options || []).length) return null;
         return tekenQuiz(blok, moduleId, segIndex, blokIndex, opWijziging);
@@ -498,13 +666,436 @@ function Speler(root, cursus, opts) {
   }
 
   /* Blokken die beantwoord moeten zijn voordat de doorgaan-knop opengaat. */
-  var VRAAGTYPEN = ['quiz', 'match', 'sort'];
+  var VRAAGTYPEN = ['quiz', 'match', 'sort', 'fill', 'scenario'];
+  /* Vragen die goed of fout kunnen zijn en meetellen voor een score. Een
+     scenario hoort er niet bij: dat moet je alleen doorlopen. */
+  var SCOREBAAR = ['quiz', 'match', 'sort', 'fill'];
 
   function telbaar(b) {
     if (b.t === 'quiz') return (b.options || []).length > 0;
     if (b.t === 'match') return (b.pairs || []).length > 0;
     if (b.t === 'sort') return (b.items || []).length > 0 && (b.piles || []).length > 0;
+    if (b.t === 'fill') return /\[[^\]]+\]/.test(b.text || '');
+    if (b.t === 'scenario') return (b.scenes || []).length > 0;
     return false;
+  }
+
+  /* In een toets kun je een vraag niet opnieuw proberen. */
+  var inToets = false;
+
+  /* -------------------------------------------- galerij */
+
+  function tekenGalerij(blok) {
+    var dia = (blok.items || []).filter(function (x) { return x.src; });
+    if (!dia.length) return null;
+    var g = el('figure', 'galerij');
+    g.setAttribute('role', 'group');
+    g.setAttribute('aria-roledescription', 'carrousel');
+    g.setAttribute('aria-label', blok.title || 'Afbeeldingen');
+    var vlak = el('div', 'galerij-vlak');
+    var beelden = dia.map(function (d, i) {
+      var img = beeldEl(d);
+      img.hidden = i !== 0;
+      vlak.appendChild(img);
+      return img;
+    });
+    g.appendChild(vlak);
+    var onder = el('div', 'galerij-onder');
+    var vorige = el('button', 'galerij-knop', '←');
+    vorige.type = 'button';
+    vorige.setAttribute('aria-label', 'Vorige afbeelding');
+    var volgende = el('button', 'galerij-knop', '→');
+    volgende.type = 'button';
+    volgende.setAttribute('aria-label', 'Volgende afbeelding');
+    var tekst = el('figcaption', 'galerij-tekst');
+    tekst.setAttribute('aria-live', 'polite');
+    onder.appendChild(vorige);
+    onder.appendChild(tekst);
+    onder.appendChild(volgende);
+    g.appendChild(onder);
+    var nu = 0;
+    function toon(n) {
+      nu = (n + dia.length) % dia.length;
+      beelden.forEach(function (b, i) { b.hidden = i !== nu; });
+      tekst.innerHTML = '';
+      if (dia.length > 1) tekst.appendChild(el('span', 'galerij-teller', (nu + 1) + ' / ' + dia.length));
+      if (dia[nu].caption) tekst.appendChild(metLinks(el('span'), dia[nu].caption));
+    }
+    if (dia.length < 2) vorige.hidden = volgende.hidden = true;
+    vorige.addEventListener('click', function () { toon(nu - 1); });
+    volgende.addEventListener('click', function () { toon(nu + 1); });
+    g.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') toon(nu - 1);
+      else if (e.key === 'ArrowRight') toon(nu + 1);
+    });
+    /* Vegen op een telefoon. */
+    var x0 = null;
+    vlak.addEventListener('pointerdown', function (e) { x0 = e.clientX; });
+    vlak.addEventListener('pointerup', function (e) {
+      if (x0 === null) return;
+      var dx = e.clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) > 40) toon(nu + (dx < 0 ? 1 : -1));
+    });
+    toon(0);
+    return g;
+  }
+
+  /* -------------------------------------------- klikplaat */
+
+  /* Een afbeelding met genummerde punten. De uitleg verschijnt onder de
+     afbeelding, zodat hij ook op een telefoon leesbaar blijft. */
+  function tekenKlikplaat(blok) {
+    var punten = blok.points || [];
+    var k = el('div', 'klikplaat');
+    var kop = el('div', 'klikplaat-hint');
+    kop.appendChild(el('span', null, blok.intro || 'Klik op de nummers in de afbeelding.'));
+    var teller = el('span', 'klikplaat-teller');
+    kop.appendChild(teller);
+    k.appendChild(kop);
+    var vlak = el('div', 'klikplaat-vlak');
+    vlak.appendChild(beeldEl(blok));
+    var paneel = el('div', 'klikplaat-paneel');
+    paneel.setAttribute('aria-live', 'polite');
+    paneel.hidden = true;
+    var gezien = {};
+    var knoppen = punten.map(function (p, i) {
+      var b = el('button', 'klikpunt', String(i + 1));
+      b.type = 'button';
+      b.style.left = p.x + '%';
+      b.style.top = p.y + '%';
+      b.setAttribute('aria-label', (i + 1) + '. ' + (p.title || 'Punt ' + (i + 1)));
+      b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', function () { open(i); });
+      vlak.appendChild(b);
+      return b;
+    });
+    k.appendChild(vlak);
+    k.appendChild(paneel);
+
+    function werkTellerBij() {
+      var n = Object.keys(gezien).length;
+      teller.textContent = punten.length ? n + ' van ' + punten.length + ' bekeken' : '';
+    }
+
+    function open(i) {
+      var p = punten[i];
+      gezien[i] = 1;
+      knoppen.forEach(function (b, j) {
+        b.setAttribute('aria-pressed', j === i ? 'true' : 'false');
+        if (gezien[j]) b.classList.add('gezien');
+      });
+      paneel.hidden = false;
+      paneel.innerHTML = '';
+      var pk = el('div', 'klikplaat-kop');
+      pk.appendChild(el('span', 'klikpunt-nr', String(i + 1)));
+      pk.appendChild(el('h3', null, p.title || 'Punt ' + (i + 1)));
+      paneel.appendChild(pk);
+      if (p.body) paneel.appendChild(html('div', 'klikplaat-tekst', p.body));
+      if (punten.length > 1) {
+        var nav = el('div', 'klikplaat-nav');
+        var terug = el('button', 'knop-klein stil', '← Vorige');
+        terug.type = 'button';
+        terug.addEventListener('click', function () { open((i - 1 + punten.length) % punten.length); });
+        var verder = el('button', 'knop-klein stil', 'Volgende →');
+        verder.type = 'button';
+        verder.addEventListener('click', function () { open((i + 1) % punten.length); });
+        nav.appendChild(terug);
+        nav.appendChild(verder);
+        paneel.appendChild(nav);
+      }
+      werkTellerBij();
+    }
+
+    werkTellerBij();
+    return k;
+  }
+
+  /* -------------------------------------------- grafiek */
+
+  function tekenGrafiek(blok) {
+    var items = (blok.items || []).filter(function (x) { return x.label || Number(x.value); });
+    if (!items.length) return null;
+    var eenheid = blok.unit || '';
+    function getal(v) {
+      var s = (Number(v) || 0).toLocaleString('nl-NL');
+      if (!eenheid) return s;
+      if (eenheid === '€') return '€ ' + s;
+      return eenheid === '%' ? s + '%' : s + ' ' + eenheid;
+    }
+    var fig = el('figure', 'grafiek');
+    if (blok.title) fig.appendChild(el('div', 'grafiek-titel', blok.title));
+    if (blok.soort === 'cirkel') {
+      var totaal = items.reduce(function (s, x) { return s + Math.max(0, Number(x.value) || 0); }, 0) || 1;
+      var rij = el('div', 'grafiek-cirkel');
+      /* Een ring met omtrek 100, zodat een percentage direct de streeplengte is. */
+      var svg = '<svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="15.9155" fill="none" stroke-width="7" style="stroke:var(--go-vlak)"/>';
+      var al = 0;
+      items.forEach(function (x, i) {
+        var deel = Math.max(0, Number(x.value) || 0) / totaal * 100;
+        svg += '<circle cx="21" cy="21" r="15.9155" fill="none" stroke-width="7" stroke-dasharray="' + deel.toFixed(3) + ' ' + (100 - deel).toFixed(3)
+          + '" stroke-dashoffset="' + (25 - al).toFixed(3) + '" style="stroke:var(--g' + (i % 6 + 1) + ')"/>';
+        al += deel;
+      });
+      rij.innerHTML = svg + '</svg>';
+      var legenda = el('ul', 'grafiek-legenda');
+      items.forEach(function (x, i) {
+        var li = el('li');
+        var vak = el('span', 'kleur');
+        vak.style.background = 'var(--g' + (i % 6 + 1) + ')';
+        li.appendChild(vak);
+        li.appendChild(el('span', null, x.label));
+        li.appendChild(el('strong', null, getal(x.value) + (eenheid === '%' ? '' : ' (' + Math.round(Math.max(0, Number(x.value) || 0) / totaal * 100) + '%)')));
+        legenda.appendChild(li);
+      });
+      rij.appendChild(legenda);
+      fig.appendChild(rij);
+    } else {
+      var max = Math.max.apply(null, items.map(function (x) { return Math.abs(Number(x.value) || 0); })) || 1;
+      var staven = el('div', 'grafiek-staven');
+      items.forEach(function (x) {
+        var r = el('div', 'staaf-rij');
+        r.appendChild(el('span', 'staaf-label', x.label));
+        var spoor = el('span', 'staaf-spoor');
+        var vul = el('i');
+        vul.style.width = (Math.max(0, Number(x.value) || 0) / max * 100) + '%';
+        spoor.appendChild(vul);
+        r.appendChild(spoor);
+        r.appendChild(el('span', 'staaf-waarde', getal(x.value)));
+        staven.appendChild(r);
+      });
+      fig.appendChild(staven);
+    }
+    if (blok.caption) fig.appendChild(metLinks(el('figcaption'), blok.caption));
+    return fig;
+  }
+
+  /* -------------------------------------------- invulvraag */
+
+  /* De gaten staan tussen [haken]; met | scheid je andere goede antwoorden,
+     zoals [hergebruik|reuse]. Hoofdletters en leestekens tellen niet mee. */
+  function normaal(s) {
+    return String(s || '').toLowerCase().replace(/\s+/g, ' ').replace(/^[\s.,;:!?]+|[\s.,;:!?]+$/g, '');
+  }
+
+  function tekenInvul(blok, moduleId, segIndex, blokIndex, opWijziging) {
+    var id = vraagId(moduleId, segIndex, blokIndex);
+    var ms = moduleStaat(moduleId);
+    var bewaard = ms.antwoorden[id];
+
+    var kaart = el('div', 'vraag');
+    kaart.appendChild(el('div', 'label', 'Invulvraag'));
+    if (blok.question) kaart.appendChild(html('div', 'stelling', blok.question));
+
+    var zin = el('p', 'invul-tekst');
+    var gaten = [];
+    String(blok.text).split(/(\[[^\]]+\])/).forEach(function (stuk) {
+      var m = stuk.match(/^\[([^\]]+)\]$/);
+      if (!m) {
+        if (stuk) zin.appendChild(document.createTextNode(stuk));
+        return;
+      }
+      var goed = m[1].split('|').map(function (s) { return s.trim(); }).filter(Boolean);
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'invul-gat';
+      inp.autocomplete = 'off';
+      inp.spellcheck = false;
+      inp.setAttribute('autocapitalize', 'off');
+      inp.size = Math.max(6, Math.max.apply(null, goed.map(function (g) { return g.length; })) + 2);
+      inp.setAttribute('aria-label', 'Invulplek ' + (gaten.length + 1));
+      zin.appendChild(inp);
+      gaten.push({ inp: inp, goed: goed });
+    });
+    kaart.appendChild(zin);
+
+    var acties = el('div', 'vraag-acties');
+    var nakijkKnop = el('button', 'knop-klein', 'Nakijken');
+    nakijkKnop.type = 'button';
+    nakijkKnop.disabled = true;
+    var opnieuwKnop = el('button', 'knop-klein stil', 'Opnieuw proberen');
+    opnieuwKnop.type = 'button';
+    opnieuwKnop.style.display = 'none';
+    acties.appendChild(nakijkKnop);
+    acties.appendChild(opnieuwKnop);
+    kaart.appendChild(acties);
+    var uitslagVak = el('div');
+    kaart.appendChild(uitslagVak);
+
+    function leeg() { return gaten.some(function (g) { return !g.inp.value.trim(); }); }
+    gaten.forEach(function (g) {
+      g.inp.addEventListener('input', function () { nakijkKnop.disabled = leeg(); });
+      g.inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !leeg() && !g.inp.readOnly) nakijkKnop.click();
+      });
+    });
+
+    function toonUitslag(keuze) {
+      var aantal = 0;
+      gaten.forEach(function (g, i) {
+        g.inp.value = keuze[i];
+        g.inp.readOnly = true;
+        var ok = g.goed.some(function (x) { return normaal(x) === normaal(keuze[i]); });
+        g.inp.classList.add(ok ? 'goed' : 'fout');
+        if (ok) aantal++;
+        else g.inp.insertAdjacentElement('afterend', el('span', 'invul-correctie', g.goed[0]));
+      });
+      var alles = aantal === gaten.length;
+      uitslagVak.innerHTML = '';
+      var uitleg = (!alles && blok.feedbackWrong) ? blok.feedbackWrong : blok.feedback;
+      var u = el('div', 'uitslag ' + (alles ? 'goed' : 'fout'));
+      u.textContent = (alles ? 'Klopt.' : (gaten.length > 1 ? aantal + ' van de ' + gaten.length + ' goed.' : 'Niet helemaal.')
+        + ' Het juiste antwoord staat erachter.') + (uitleg ? ' ' + uitleg : '');
+      uitslagVak.appendChild(u);
+      nakijkKnop.style.display = 'none';
+      opnieuwKnop.style.display = (alles || inToets) ? 'none' : '';
+      return alles;
+    }
+
+    nakijkKnop.addEventListener('click', function () {
+      var keuze = gaten.map(function (g) { return g.inp.value.trim(); });
+      var goed = toonUitslag(keuze);
+      ms.antwoorden[id] = { keuze: keuze, goed: goed };
+      bewaar();
+      opWijziging();
+    });
+
+    opnieuwKnop.addEventListener('click', function () {
+      delete ms.antwoorden[id];
+      bewaar();
+      gaten.forEach(function (g) {
+        g.inp.readOnly = false;
+        g.inp.value = '';
+        g.inp.classList.remove('goed', 'fout');
+      });
+      Array.prototype.forEach.call(zin.querySelectorAll('.invul-correctie'), function (c) { c.remove(); });
+      uitslagVak.innerHTML = '';
+      nakijkKnop.style.display = '';
+      nakijkKnop.disabled = true;
+      opnieuwKnop.style.display = 'none';
+      opWijziging();
+    });
+
+    if (bewaard && bewaard.keuze && bewaard.keuze.length === gaten.length) toonUitslag(bewaard.keuze);
+    else if (bewaard) delete ms.antwoorden[id];
+
+    kaart.dataset.vraag = id;
+    return kaart;
+  }
+
+  /* -------------------------------------------- scenario */
+
+  /* Een gesprek met keuzes. Elke keuze krijgt een reactie en leidt naar een
+     volgende scène of naar het einde. Af als de student het einde haalt. */
+  function tekenScenario(blok, moduleId, segIndex, blokIndex, opWijziging) {
+    var id = vraagId(moduleId, segIndex, blokIndex);
+    var ms = moduleStaat(moduleId);
+    var bewaard = ms.antwoorden[id];
+    var scenes = blok.scenes;
+    function sceneIndex(sid) {
+      for (var n = 0; n < scenes.length; n++) if (scenes[n].id === sid) return n;
+      return -1;
+    }
+
+    var kaart = el('div', 'scenario');
+    kaart.appendChild(el('div', 'label', 'Scenario'));
+    var naam = blok.persoon || 'Gesprekspartner';
+    var kop = el('div', 'scenario-kop');
+    kop.appendChild(el('span', 'scenario-bol', initialen(naam)));
+    var kt = el('span');
+    kt.appendChild(el('strong', null, naam));
+    if (blok.rol) kt.appendChild(el('small', null, blok.rol));
+    kop.appendChild(kt);
+    kaart.appendChild(kop);
+    if (blok.intro) kaart.appendChild(html('div', 'scenario-intro', blok.intro));
+    var gesprek = el('div', 'gesprek');
+    gesprek.setAttribute('aria-live', 'polite');
+    var keuzes = el('div', 'scenario-keuzes');
+    kaart.appendChild(gesprek);
+    kaart.appendChild(keuzes);
+    var pad = [];
+
+    function zeg(wie, inhoud, alsHtml) {
+      var b = el('div', 'ballon ' + wie);
+      if (alsHtml) b.innerHTML = inhoud; else b.textContent = inhoud;
+      gesprek.appendChild(b);
+    }
+
+    function toonKeuze(c) {
+      zeg('jij', c.text);
+      if (c.reactie) zeg('zij', c.reactie);
+      if (c.uitleg) zeg('uitleg', c.uitleg);
+    }
+
+    function scene(n) {
+      keuzes.innerHTML = '';
+      var s = scenes[n];
+      if (!s) return einde();
+      if (s.text) zeg('zij', s.text, true);
+      (s.choices || []).forEach(function (c, ci) {
+        if (!c.text) return;
+        var b = el('button', 'scenario-keuze', c.text);
+        b.type = 'button';
+        b.addEventListener('click', function () { kies(n, ci); });
+        keuzes.appendChild(b);
+      });
+      if (!keuzes.children.length) einde();
+    }
+
+    function kies(n, ci) {
+      var c = scenes[n].choices[ci];
+      pad.push([n, ci]);
+      keuzes.innerHTML = '';
+      toonKeuze(c);
+      var naar = sceneIndex(c.naar);
+      var verder = el('button', 'knop-klein', naar >= 0 ? 'Verder' : 'Afronden');
+      verder.type = 'button';
+      verder.addEventListener('click', function () {
+        /* Een kring van scènes houdt ergens op. */
+        if (naar >= 0 && pad.length < 60) scene(naar); else einde();
+      });
+      keuzes.appendChild(verder);
+      verder.focus({ preventScroll: true });
+    }
+
+    function einde() {
+      keuzes.innerHTML = '';
+      var slot = el('div', 'scenario-slot');
+      if (blok.slot) slot.appendChild(html('div', null, blok.slot));
+      var opnieuw = el('button', 'knop-klein stil', 'Opnieuw spelen');
+      opnieuw.type = 'button';
+      opnieuw.addEventListener('click', function () {
+        pad = [];
+        gesprek.innerHTML = '';
+        scene(0);
+      });
+      slot.appendChild(opnieuw);
+      keuzes.appendChild(slot);
+      if (!ms.antwoorden[id]) {
+        ms.antwoorden[id] = { pad: pad.slice(), klaar: true };
+        bewaar();
+        opWijziging();
+      }
+    }
+
+    var geldig = bewaard && Array.isArray(bewaard.pad) && bewaard.pad.every(function (st) {
+      return scenes[st[0]] && (scenes[st[0]].choices || [])[st[1]];
+    });
+    if (geldig) {
+      bewaard.pad.forEach(function (st) {
+        var s = scenes[st[0]];
+        if (s.text) zeg('zij', s.text, true);
+        toonKeuze(s.choices[st[1]]);
+      });
+      pad = bewaard.pad.slice();
+      einde();
+    } else {
+      if (bewaard) delete ms.antwoorden[id];
+      scene(0);
+    }
+
+    kaart.dataset.vraag = id;
+    return kaart;
   }
 
   /* -------------------------------------------- meerkeuze en meervoudig */
@@ -588,7 +1179,7 @@ function Speler(root, cursus, opts) {
       });
 
       nakijkKnop.style.display = 'none';
-      opnieuwKnop.style.display = goed ? 'none' : '';
+      opnieuwKnop.style.display = (goed || inToets) ? 'none' : '';
       return goed;
     }
 
@@ -731,7 +1322,7 @@ function Speler(root, cursus, opts) {
         + (uitleg ? ' ' + uitleg : '');
       uitslagVak.appendChild(u);
       nakijkKnop.style.display = 'none';
-      opnieuwKnop.style.display = alles ? 'none' : '';
+      opnieuwKnop.style.display = (alles || inToets) ? 'none' : '';
       return alles;
     }
 
@@ -843,10 +1434,13 @@ function Speler(root, cursus, opts) {
     }
     root.innerHTML = '';
 
-    var segmenten = segmenteer(les.blocks);
+    var toets = les.toets || null;
+    inToets = !!toets;
+    var segmenten = segmentenVan(les);
     var ms = moduleStaat(moduleId);
     if (!segmenten.length) segmenten = [[]];
-    if (ms.af) ms.segment = segmenten.length - 1;
+    if (ms.af && !toets) ms.segment = segmenten.length - 1;
+    var werkUitslagBij = null;
     if (ms.segment >= segmenten.length) ms.segment = segmenten.length - 1;
     var tot = opts.allesTonen ? segmenten.length - 1 : ms.segment;
 
@@ -869,8 +1463,15 @@ function Speler(root, cursus, opts) {
     var lezer = el('main', 'lezer');
     var kop = el('div', 'moduletitel');
     var nr = cursus.lessons.indexOf(les) + 1;
-    kop.appendChild(el('p', 'kicker', 'Module ' + nr + ' van ' + cursus.lessons.length));
+    kop.appendChild(el('p', 'kicker', (toets ? 'Toets · ' : '') + 'Module ' + nr + ' van ' + cursus.lessons.length));
     kop.appendChild(el('h1', null, les.title || 'Module ' + nr));
+    if (toets) {
+      var grens = slaaggrens(les);
+      var aantal = toetsScore().totaal;
+      kop.appendChild(el('p', 'toets-regel', aantal + (aantal === 1 ? ' vraag' : ' vragen') + ', elk één poging.'
+        + (grens ? ' Je hebt ' + grens + '% goed nodig om de toets te halen.' : '')
+        + (ms.score !== undefined ? ' Je beste score tot nu toe: ' + ms.score + '%.' : '')));
+    }
     if (les.deadline) {
       var dl = el('p', 'deadline-regel');
       dl.appendChild(el('span', 'deadline', 'Afronden vóór ' + les.deadline));
@@ -894,12 +1495,74 @@ function Speler(root, cursus, opts) {
       return open;
     }
 
+    function toetsScore() {
+      var goed = 0, totaal = 0;
+      segmenten.forEach(function (seg, s) {
+        seg.forEach(function (x, i) {
+          if (SCOREBAAR.indexOf(x.blok.t) < 0 || !telbaar(x.blok)) return;
+          totaal++;
+          var a = ms.antwoorden[vraagId(moduleId, s, i)];
+          if (a && a.goed) goed++;
+        });
+      });
+      return { goed: goed, totaal: totaal, pct: totaal ? Math.round((goed / totaal) * 100) : 0 };
+    }
+
+    /* De uitslag verschijnt zodra alle vragen zijn beantwoord. */
+    function toonToetsUitslag(vak) {
+      var open = 0;
+      for (var s = 0; s < segmenten.length; s++) open += openVragen(s);
+      vak.innerHTML = '';
+      vak.hidden = open > 0;
+      if (open > 0) return;
+      var r = toetsScore();
+      var grens = slaaggrens(les);
+      var gehaald = r.pct >= grens;
+      if (!opts.allesTonen) {
+        ms.score = Math.max(ms.score || 0, r.pct);
+        if (gehaald) ms.af = true;
+        bewaar();
+      }
+      vak.classList.toggle('gehaald', gehaald);
+      vak.appendChild(el('div', 'vinkje', gehaald ? '✓' : '!'));
+      vak.appendChild(el('h2', null, gehaald ? 'Toets gehaald' : 'Nog niet gehaald'));
+      vak.appendChild(el('p', 'toets-score', r.pct + '%'));
+      vak.appendChild(el('p', null, r.goed + ' van de ' + r.totaal + ' vragen goed.'
+        + (grens ? ' Om de toets te halen heb je ' + grens + '% nodig.' : '')));
+      var knoppen = el('div', 'knoppen');
+      var volgende = cursus.lessons[cursus.lessons.indexOf(les) + 1];
+      if (gehaald && volgende) {
+        var v = el('button', 'knop-klein', 'Volgende module');
+        v.type = 'button';
+        v.addEventListener('click', function () { openModule(volgende.id); });
+        knoppen.appendChild(v);
+      }
+      var opnieuw = el('button', gehaald ? 'knop-klein stil' : 'knop-klein', 'Toets opnieuw maken');
+      opnieuw.type = 'button';
+      opnieuw.addEventListener('click', function () {
+        ms.antwoorden = {};
+        ms.segment = 0;
+        ms.poging = (ms.poging || 0) + 1;
+        bewaar();
+        openModule(moduleId);
+      });
+      knoppen.appendChild(opnieuw);
+      var o = el('button', 'knop-klein stil', 'Terug naar het overzicht');
+      o.type = 'button';
+      o.addEventListener('click', toonStart);
+      knoppen.appendChild(o);
+      vak.appendChild(knoppen);
+    }
+
     function tekenSegment(index) {
       var seg = el('section', 'segment');
       var herbeoordeel = function () { /* wordt hieronder vervangen */ };
 
       segmenten[index].forEach(function (x, i) {
-        var node = tekenBlok(x.blok, moduleId, index, i, function () { herbeoordeel(); });
+        var node = tekenBlok(x.blok, moduleId, index, i, function () {
+          herbeoordeel();
+          if (werkUitslagBij) werkUitslagBij();
+        });
         if (node) {
           node.setAttribute('data-blok', x.gi);
           seg.appendChild(node);
@@ -914,7 +1577,7 @@ function Speler(root, cursus, opts) {
 
       if (!laatste && isVoorste) {
         var voet = el('div', 'doorgaan');
-        var knop = el('button', null, 'Doorgaan');
+        var knop = el('button', null, toets ? 'Volgende vraag' : 'Doorgaan');
         knop.type = 'button';
         var hint = el('div', 'hint', '');
         voet.appendChild(knop);
@@ -939,6 +1602,11 @@ function Speler(root, cursus, opts) {
           var nieuw = tekenSegment(index + 1);
           nieuw.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
+      } else if (laatste && toets) {
+        var uitslag = el('div', 'afronding toets-uitslag');
+        seg.appendChild(uitslag);
+        werkUitslagBij = function () { toonToetsUitslag(uitslag); };
+        werkUitslagBij();
       } else if (laatste) {
         var slot = el('div', 'afronding');
         slot.appendChild(el('div', 'vinkje', '✓'));

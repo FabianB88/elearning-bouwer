@@ -311,6 +311,7 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .rijk ul, .rijk ol { margin: 0 0 0.6em; padding-left: 1.3em; }
 .rijk a { color: var(--accent-sterk); }
 .linkregel { display: flex; gap: 6px; padding: 6px; border-top: 1px solid var(--lijn); }
+.linkregel[hidden] { display: none; }
 
 .beeld-kies { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: center; }
 .beeld-kies .duim { width: 120px; height: 80px; border-radius: 8px; border: 1px dashed var(--lijn); background: var(--vlak) center / contain no-repeat; display: grid; place-items: center; font-size: 11px; color: var(--tekst-3); text-align: center; }
@@ -341,6 +342,24 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .keuzelijst strong { font-size: 14px; }
 .keuzelijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
 
+/* klikplaat, tabel en toets in de editor */
+.plaats-vlak { position: relative; border-radius: 8px; overflow: hidden; cursor: crosshair; border: 1px solid var(--lijn); background: var(--vlak); }
+.plaats-vlak img { width: 100%; height: auto; display: block; pointer-events: none; user-select: none; }
+.plaats-punt { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; border: 2px solid #fff; background: var(--accent); color: var(--op-accent); font-size: 12px; font-weight: 700; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35); cursor: grab; touch-action: none; padding: 0; }
+.plaats-punt:active { cursor: grabbing; }
+.plaats-punt:focus-visible { outline: 3px solid var(--tekst); outline-offset: 2px; }
+.tabel-edit-scroll { overflow-x: auto; }
+.tabel-edit { border-collapse: collapse; }
+.tabel-edit td { padding: 2px; }
+.tabel-edit input { min-width: 110px; }
+.tabel-edit.met-kop tr:first-child input, .tabel-edit.met-zijkop td:first-child input { font-weight: 700; background: var(--accent-zacht); }
+.tabel-edit .tabel-actie { text-align: center; }
+.toets-instelling { border: 1px solid var(--lijn); border-radius: 10px; padding: 10px 12px; display: grid; gap: 10px; background: var(--paneel); }
+.toets-instelling.aan { border-color: var(--accent); background: var(--accent-zacht); }
+.toets-velden { display: flex; gap: 10px 18px; align-items: end; flex-wrap: wrap; }
+.toets-velden .veld { width: 170px; }
+.geschiedenis-knoppen { display: inline-flex; }
+
 .melding { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--tekst); color: var(--paneel); padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--schaduw); max-width: calc(100% - 32px); }
 .bevestig { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--gevaar); }
 
@@ -360,7 +379,7 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 @media (max-width: 760px) {
   .werk { grid-template-columns: minmax(0, 1fr); }
   .werk .baan-structuur, .werk .baan-editor, .werk .baan-voorbeeld { grid-column: 1; }
-  .paneel-knoppen { display: none; }
+  .paneel-knoppen, .geschiedenis-knoppen { display: none; }
   .tabs-smal .alleen-mobiel { display: inline-block; }
   .werk .baan-structuur { display: none; border-right: 0; }
   .werk[data-tab="structuur"] .baan-structuur { display: block; }
@@ -391,6 +410,10 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
         <button type="button" data-tab="structuur" class="alleen-mobiel">Structuur</button>
         <button type="button" data-tab="bewerken" aria-pressed="true">Bewerken</button>
         <button type="button" data-tab="voorbeeld">Voorbeeld</button>
+      </span>
+      <span class="geschiedenis-knoppen" role="group" aria-label="Ongedaan maken">
+        <button type="button" class="icoonknop" id="knop-terug" disabled title="Ongedaan maken (Ctrl+Z)" aria-label="Ongedaan maken"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+        <button type="button" class="icoonknop" id="knop-vooruit" disabled title="Opnieuw (Ctrl+Y)" aria-label="Opnieuw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
       </span>
       <span class="paneel-knoppen" role="group" aria-label="Indeling">
         <button type="button" class="icoonknop" id="paneel-links" aria-pressed="true" title="Structuur in- of uitklappen (Alt+1)" aria-label="Structuur in- of uitklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>

@@ -152,6 +152,19 @@
     sort: '<rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/><path d="M5.5 8h2M5.5 12h2M16.5 8h2"/>',
     continue: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     svg: '<path d="M4 20 10 4l4 10 2-4 4 10"/>',
+    imagetext: '<rect x="3" y="5" width="8" height="14" rx="1.5"/><path d="M14 7h7M14 12h7M14 17h5"/>',
+    gallery: '<rect x="6" y="5" width="12" height="14" rx="2"/><path d="M3 8v8M21 8v8"/>',
+    hotspots: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><circle cx="16" cy="15" r="2"/>',
+    audio: '<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/>',
+    note: '<path d="M5 4h14v12l-4 4H5Z"/><path d="M15 20v-4h4M9 9h6M9 13h4"/>',
+    table: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3 10h18M3 15h18M10 5v14"/>',
+    chart: '<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/>',
+    divider: '<path d="M4 12h16"/><path d="M9 6h6M9 18h6"/>',
+    fill: '<path d="M3 12h4M17 12h4"/><rect x="8" y="8.5" width="8" height="7" rx="1.5"/>',
+    scenario: '<path d="M4 5h11v7H8l-4 3Z"/><path d="M15 9h5v7l-3-2h-6v-2"/>',
+    verplaats: '<path d="M14 5h5v5M19 5l-8 8"/><path d="M17 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4"/>',
+    terug: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+    vooruit: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/>',
     omhoog: '<path d="m6 15 6-6 6 6"/>',
     omlaag: '<path d="m6 9 6 6 6-6"/>',
     kopie: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
@@ -214,6 +227,17 @@
   function tekstVan(x) { return String(x == null ? '' : x); }
   function lijstVan(x) { return Array.isArray(x) ? x : []; }
 
+  /* Een punt op een afbeelding, in procenten, niet tegen de rand. */
+  function klem(v) { return Math.round(Math.min(97, Math.max(3, Number(v) || 0)) * 10) / 10; }
+  var NOTITIE_SOORTEN = [['tip', 'Tip'], ['let', 'Let op'], ['info', 'Goed om te weten'], ['opdracht', 'Opdracht']];
+  function beeldVan(x) { return { src: tekstVan(x && x.src), w: (x && x.w) || undefined, h: (x && x.h) || undefined, alt: tekstVan(x && x.alt) }; }
+
+  function normaliseerToets(x) {
+    if (!x || typeof x !== 'object') return undefined;
+    var g = Number(x.slagen);
+    return { slagen: x.slagen === '' || isNaN(g) ? 70 : Math.min(100, Math.max(0, Math.round(g))), hussel: !!x.hussel };
+  }
+
   function normaliseerBlok(b) {
     if (!b || typeof b !== 'object') return null;
     var t = b.t;
@@ -263,6 +287,53 @@
           feedback: tekstVan(b.feedback), feedbackWrong: tekstVan(b.feedbackWrong)
         }; break;
       case 'continue': uit = { t: t }; break;
+      case 'imagetext':
+        uit = beeldVan(b);
+        uit.t = t;
+        uit.caption = tekstVan(b.caption);
+        uit.kant = b.kant === 'rechts' ? 'rechts' : 'links';
+        uit.heading = tekstVan(b.heading);
+        uit.body = alsAlinea(b.body);
+        break;
+      case 'gallery':
+        uit = { t: t, title: tekstVan(b.title), items: lijstVan(b.items).map(function (x) { var y = beeldVan(x); y.caption = tekstVan(x && x.caption); return y; }) };
+        if (!uit.items.length) uit.items.push({ src: '', alt: '', caption: '' });
+        break;
+      case 'hotspots':
+        uit = beeldVan(b);
+        uit.t = t;
+        uit.intro = tekstVan(b.intro);
+        uit.points = lijstVan(b.points).map(function (p) { return { x: klem(p && p.x), y: klem(p && p.y), title: tekstVan(p && p.title), body: alsAlinea(p && p.body) }; });
+        break;
+      case 'audio': uit = { t: t, url: tekstVan(b.url), title: tekstVan(b.title), transcript: alsAlinea(b.transcript) }; break;
+      case 'note':
+        uit = { t: t, soort: NOTITIE_SOORTEN.some(function (x) { return x[0] === b.soort; }) ? b.soort : 'tip', title: tekstVan(b.title), body: alsAlinea(b.body) }; break;
+      case 'table':
+        var rijen = lijstVan(b.rows).map(function (r) { return lijstVan(r).map(tekstVan); }).filter(function (r) { return r.length; });
+        uit = { t: t, kop: b.kop !== false, zijkop: !!b.zijkop, caption: tekstVan(b.caption), rows: rijen.length ? rijen : [['', ''], ['', '']] }; break;
+      case 'chart':
+        uit = {
+          t: t, soort: b.soort === 'cirkel' ? 'cirkel' : 'staaf', title: tekstVan(b.title), unit: tekstVan(b.unit), caption: tekstVan(b.caption),
+          items: lijstVan(b.items).map(function (x) { return { label: tekstVan(x && x.label), value: Number(x && x.value) || 0 }; })
+        }; break;
+      case 'divider': uit = { t: t }; break;
+      case 'fill': uit = { t: t, question: alsAlinea(b.question), text: naarTekst(b.text), feedback: tekstVan(b.feedback), feedbackWrong: tekstVan(b.feedbackWrong) }; break;
+      case 'scenario':
+        var gezienS = {};
+        var scenes = lijstVan(b.scenes).map(function (sc) {
+          var sid = /^[A-Za-z0-9_-]{1,40}$/.test(sc && sc.id) && !gezienS[sc.id] && sc.id !== 'einde' ? sc.id : nieuwId('s');
+          gezienS[sid] = 1;
+          return { id: sid, text: alsAlinea(sc && sc.text), choices: lijstVan(sc && sc.choices).map(function (c) { return { text: tekstVan(c && c.text), reactie: tekstVan(c && c.reactie), uitleg: tekstVan(c && c.uitleg), naar: c && c.naar }; }) };
+        });
+        if (!scenes.length) scenes.push({ id: nieuwId('s'), text: '', choices: [] });
+        /* Een verwijzing mag een id of een volgnummer zijn; al het andere is het einde. */
+        scenes.forEach(function (sc) {
+          sc.choices.forEach(function (c) {
+            if (typeof c.naar === 'number' && scenes[c.naar]) c.naar = scenes[c.naar].id;
+            if (!scenes.some(function (y) { return y.id === c.naar; })) c.naar = 'einde';
+          });
+        });
+        uit = { t: t, persoon: tekstVan(b.persoon), rol: tekstVan(b.rol), intro: alsAlinea(b.intro), slot: alsAlinea(b.slot), scenes: scenes }; break;
       case 'svg': uit = { t: t, svg: schoonSvg(b.svg), alt: tekstVan(b.alt), caption: tekstVan(b.caption) }; break;
       default: return null;
     }
@@ -281,6 +352,7 @@
         id: id,
         title: tekstVan(l && l.title) || 'Module ' + (i + 1),
         deadline: tekstVan(l && l.deadline),
+        toets: normaliseerToets(l && l.toets),
         blocks: lijstVan(l && l.blocks).map(normaliseerBlok).filter(Boolean)
       };
     });
@@ -494,6 +566,28 @@
       return h('div', { class: 'veld' }, label ? h('label', { for: id, text: label }) : null, h('div', { class: 'rijk-veld' }, balk, vak, linkRegel));
     },
 
+    /* Een afbeelding kiezen: zet src, w en h op obj. */
+    beeld: function (obj, ctx) {
+      var duim = h('div', { class: 'duim' }, obj.src ? '' : 'Geen afbeelding');
+      if (/^data:image\//.test(obj.src)) duim.style.backgroundImage = 'url("' + obj.src + '")';
+      var kies = h('input', { type: 'file', accept: 'image/*', hidden: true });
+      var info = h('div', { class: 'hulp', text: obj.w ? obj.w + ' × ' + obj.h + ' pixels' : 'JPG, PNG of WebP. Grote foto\'s worden verkleind.' });
+      kies.addEventListener('change', function () {
+        var f = kies.files[0];
+        if (!f) return;
+        info.textContent = 'Bezig met verwerken…';
+        verwerkBeeld(f).then(function (r) {
+          obj.src = r.src; obj.w = r.w; obj.h = r.h;
+          gewijzigd(); ctx.opnieuw();
+        }).catch(function () { info.textContent = 'Deze afbeelding kon niet worden gelezen. Probeer een JPG of PNG.'; });
+      });
+      return h('div', { class: 'beeld-kies' }, duim, h('div', { class: 'velden' },
+        h('div', { class: 'knoprij' },
+          h('button', { type: 'button', class: 'knop klein', onclick: function () { kies.click(); } }, obj.src ? 'Andere afbeelding' : 'Afbeelding kiezen'),
+          obj.src ? h('button', { type: 'button', class: 'knop klein gevaar', onclick: function () { obj.src = ''; obj.w = obj.h = undefined; gewijzigd(); ctx.opnieuw(); } }, 'Weghalen') : null),
+        info, kies));
+    },
+
     schakel: function (label, obj, key, opWijzig) {
       var id = veldId();
       var inp = h('input', { type: 'checkbox', id: id, checked: !!obj[key] });
@@ -531,6 +625,92 @@
       return h('div', { class: 'veld' }, label ? h('span', { class: 'veldlabel', text: label }) : null, lijst, h('div', null, toe));
     }
   };
+
+  function beeldProbleem(x, altNodig) {
+    if (!x.src) return 'Nog geen afbeelding gekozen';
+    if (!/^data:image\//.test(x.src) && !/^https?:/.test(x.src)) return 'Afbeelding niet gevonden, kies hem opnieuw';
+    if (altNodig && !x.alt && !x.caption) return 'Geen alt-tekst';
+    return '';
+  }
+
+  /* Punten op een klikplaat: klik om er een te zetten, sleep om te verplaatsen. */
+  function plaatsVlak(b, ctx) {
+    var vlak = h('div', { class: 'plaats-vlak' }, h('img', { src: b.src, alt: '' }));
+    b.points.forEach(function (p, i) {
+      var m = h('button', { type: 'button', class: 'plaats-punt', style: 'left:' + p.x + '%;top:' + p.y + '%', title: (p.title || 'Punt ' + (i + 1)) + ': sleep om te verplaatsen', 'aria-label': 'Punt ' + (i + 1) + ', verplaats met de pijltjestoetsen' }, String(i + 1));
+      var sleept = false;
+      m.addEventListener('pointerdown', function (e) { e.preventDefault(); m.setPointerCapture(e.pointerId); sleept = true; });
+      m.addEventListener('pointermove', function (e) {
+        if (!sleept) return;
+        var r = vlak.getBoundingClientRect();
+        p.x = klem((e.clientX - r.left) / r.width * 100);
+        p.y = klem((e.clientY - r.top) / r.height * 100);
+        m.style.left = p.x + '%';
+        m.style.top = p.y + '%';
+      });
+      m.addEventListener('pointerup', function () { if (sleept) { sleept = false; gewijzigd(); } });
+      m.addEventListener('keydown', function (e) {
+        var d = e.shiftKey ? 5 : 1;
+        var dx = e.key === 'ArrowLeft' ? -d : e.key === 'ArrowRight' ? d : 0;
+        var dy = e.key === 'ArrowUp' ? -d : e.key === 'ArrowDown' ? d : 0;
+        if (!dx && !dy) return;
+        e.preventDefault();
+        p.x = klem(p.x + dx);
+        p.y = klem(p.y + dy);
+        m.style.left = p.x + '%';
+        m.style.top = p.y + '%';
+        gewijzigd();
+      });
+      vlak.append(m);
+    });
+    /* Alleen een echte klik zet een punt; slepen over de afbeelding niet. */
+    var neer = null;
+    vlak.addEventListener('pointerdown', function (e) { neer = [e.clientX, e.clientY]; });
+    vlak.addEventListener('click', function (e) {
+      if (e.target.closest('.plaats-punt')) return;
+      if (neer && Math.abs(e.clientX - neer[0]) + Math.abs(e.clientY - neer[1]) > 6) return;
+      var r = vlak.getBoundingClientRect();
+      b.points.push({ x: klem((e.clientX - r.left) / r.width * 100), y: klem((e.clientY - r.top) / r.height * 100), title: '', body: '' });
+      gewijzigd();
+      ctx.opnieuw();
+      var items = ctx.body.querySelectorAll('.reeks-item');
+      var nieuw = items[items.length - 1];
+      if (nieuw && nieuw.querySelector('input')) nieuw.querySelector('input').focus();
+    });
+    return h('div', { class: 'veld' }, h('span', { class: 'veldlabel', text: 'Punten op de afbeelding' }), vlak,
+      h('div', { class: 'hulp', text: 'Klik op de afbeelding om een punt te zetten. Sleep een punt om het te verplaatsen, of gebruik de pijltjestoetsen.' }));
+  }
+
+  function tabelEditor(b, ctx) {
+    var kol = Math.max.apply(null, b.rows.map(function (r) { return r.length; }).concat([1]));
+    b.rows.forEach(function (r) { while (r.length < kol) r.push(''); });
+    var tabel = h('table', { class: 'tabel-edit' + (b.kop ? ' met-kop' : '') + (b.zijkop ? ' met-zijkop' : '') });
+    b.rows.forEach(function (r, ri) {
+      var tr = h('tr');
+      r.forEach(function (c, ci) {
+        var inp = h('input', { type: 'text', value: c, 'aria-label': 'Rij ' + (ri + 1) + ', kolom ' + (ci + 1) });
+        inp.addEventListener('input', function () { r[ci] = inp.value; gewijzigd(); });
+        tr.append(h('td', null, inp));
+      });
+      tr.append(h('td', { class: 'tabel-actie' }, icoonknop('kruis', 'Rij ' + (ri + 1) + ' verwijderen', function () { b.rows.splice(ri, 1); gewijzigd(); ctx.opnieuw(); }, b.rows.length <= 1)));
+      tabel.append(tr);
+    });
+    var voet = h('tr');
+    r0(kol).forEach(function (ci) {
+      voet.append(h('td', { class: 'tabel-actie' }, icoonknop('kruis', 'Kolom ' + (ci + 1) + ' verwijderen', function () { b.rows.forEach(function (r) { r.splice(ci, 1); }); gewijzigd(); ctx.opnieuw(); }, kol <= 1)));
+    });
+    voet.append(h('td'));
+    tabel.append(voet);
+    return h('div', { class: 'veld' }, h('span', { class: 'veldlabel', text: 'Inhoud' }), h('div', { class: 'tabel-edit-scroll' }, tabel),
+      h('div', { class: 'knoprij' },
+        h('button', { type: 'button', class: 'knop klein', onclick: function () { b.rows.push(r0(kol).map(function () { return ''; })); gewijzigd(); ctx.opnieuw(); } }, ico('plus'), 'Rij'),
+        h('button', { type: 'button', class: 'knop klein', onclick: function () { b.rows.forEach(function (r) { r.push(''); }); gewijzigd(); ctx.opnieuw(); } }, ico('plus'), 'Kolom')));
+  }
+  function r0(n) { var a = []; for (var i = 0; i < n; i++) a.push(i); return a; }
+
+  function invulPlekken(tekst) {
+    return (String(tekst || '').match(/\[[^\]]+\]/g) || []).map(function (g) { return g.slice(1, -1).split('|')[0].trim(); });
+  }
 
   function eerste(html, n) { var t = naarTekst(html).replace(/\s+/g, ' '); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
 
@@ -573,25 +753,8 @@
         return '';
       },
       velden: function (b, ctx) {
-        var duim = h('div', { class: 'duim' }, b.src ? '' : 'Geen afbeelding');
-        if (/^data:image\//.test(b.src)) duim.style.backgroundImage = 'url("' + b.src + '")';
-        var kies = h('input', { type: 'file', accept: 'image/*', hidden: true });
-        var info = h('div', { class: 'hulp', text: b.w ? b.w + ' × ' + b.h + ' pixels' : 'JPG, PNG of WebP. Grote foto\'s worden verkleind.' });
-        kies.addEventListener('change', function () {
-          var f = kies.files[0];
-          if (!f) return;
-          info.textContent = 'Bezig met verwerken…';
-          verwerkBeeld(f).then(function (r) {
-            b.src = r.src; b.w = r.w; b.h = r.h;
-            gewijzigd(); ctx.opnieuw();
-          }).catch(function () { info.textContent = 'Deze afbeelding kon niet worden gelezen. Probeer een JPG of PNG.'; });
-        });
         return [
-          h('div', { class: 'beeld-kies' }, duim, h('div', { class: 'velden' },
-            h('div', { class: 'knoprij' },
-              h('button', { type: 'button', class: 'knop klein', onclick: function () { kies.click(); } }, b.src ? 'Andere afbeelding' : 'Afbeelding kiezen'),
-              b.src ? h('button', { type: 'button', class: 'knop klein gevaar', onclick: function () { b.src = ''; b.w = b.h = undefined; gewijzigd(); ctx.opnieuw(); } }, 'Weghalen') : null),
-            info, kies)),
+          V.beeld(b, ctx),
           V.tekst('Bijschrift', b, 'caption', { uitleg: 'Staat onder de afbeelding. Webadressen worden klikbaar.' }),
           V.tekst('Alt-tekst', b, 'alt', { hint: 'Beschrijf wat er te zien is', uitleg: 'Voor schermlezers. Laat leeg als het bijschrift het al zegt.' })
         ];
@@ -815,6 +978,221 @@
         ];
       }
     },
+    note: {
+      naam: 'Opmerking', groep: 'Tekst', uitleg: 'Tip, let op of opdracht',
+      nieuw: function () { return { t: 'note', soort: 'tip', title: '', body: '' }; },
+      samenvatting: function (b) {
+        var soort = NOTITIE_SOORTEN.find(function (x) { return x[0] === b.soort; }) || NOTITIE_SOORTEN[0];
+        return (b.title || soort[1]) + ': ' + (eerste(b.body, 70) || 'nog leeg');
+      },
+      velden: function (b) {
+        return [
+          h('div', { class: 'twee' }, V.keuze('Soort', b, 'soort', NOTITIE_SOORTEN), V.tekst('Eigen kop (optioneel)', b, 'title', { hint: 'Anders de naam van de soort' })),
+          V.rijk('Tekst', b, 'body')
+        ];
+      }
+    },
+    table: {
+      naam: 'Tabel', groep: 'Tekst', uitleg: 'Gegevens in rijen en kolommen',
+      nieuw: function () { return { t: 'table', kop: true, zijkop: false, caption: '', rows: [['', ''], ['', ''], ['', '']] }; },
+      samenvatting: function (b) { return b.caption || b.rows.length + ' rijen, ' + (b.rows[0] || []).length + ' kolommen'; },
+      waarschuwing: function (b) { return b.rows.some(function (r) { return r.some(function (c) { return String(c).trim(); }); }) ? '' : 'De tabel is nog leeg'; },
+      velden: function (b, ctx) {
+        return [
+          h('div', { class: 'knoprij', style: 'gap:18px' },
+            V.schakel('Eerste rij is de kop', b, 'kop', function () { ctx.opnieuw(); }),
+            V.schakel('Eerste kolom is een kop', b, 'zijkop', function () { ctx.opnieuw(); })),
+          tabelEditor(b, ctx),
+          V.tekst('Bijschrift of bron', b, 'caption')
+        ];
+      }
+    },
+    imagetext: {
+      naam: 'Afbeelding met tekst', groep: 'Beeld en media', uitleg: 'Beeld en tekst naast elkaar',
+      nieuw: function () { return { t: 'imagetext', src: '', alt: '', caption: '', kant: 'links', heading: '', body: '' }; },
+      samenvatting: function (b) { return b.heading || eerste(b.body, 80) || 'Nog leeg'; },
+      waarschuwing: function (b) { return beeldProbleem(b, true); },
+      velden: function (b, ctx) {
+        return [
+          V.beeld(b, ctx),
+          h('div', { class: 'twee' },
+            V.keuze('Afbeelding staat', b, 'kant', [['links', 'Links van de tekst'], ['rechts', 'Rechts van de tekst']]),
+            V.tekst('Alt-tekst', b, 'alt', { hint: 'Beschrijf wat er te zien is' })),
+          V.tekst('Kop (mag leeg)', b, 'heading'),
+          V.rijk('Tekst', b, 'body'),
+          V.tekst('Bijschrift', b, 'caption', { uitleg: 'Staat onder de afbeelding. Op een telefoon staat de afbeelding boven de tekst.' })
+        ];
+      }
+    },
+    gallery: {
+      naam: 'Galerij', groep: 'Beeld en media', uitleg: 'Afbeeldingen om door te bladeren',
+      nieuw: function () { return { t: 'gallery', title: '', items: [{ src: '', alt: '', caption: '' }, { src: '', alt: '', caption: '' }] }; },
+      samenvatting: function (b) {
+        var n = b.items.filter(function (x) { return x.src; }).length;
+        return b.title || n + (n === 1 ? ' afbeelding' : ' afbeeldingen');
+      },
+      waarschuwing: function (b) {
+        if (!b.items.some(function (x) { return x.src; })) return 'Nog geen afbeeldingen gekozen';
+        return b.items.map(function (x) { return x.src ? beeldProbleem(x, true) : ''; }).filter(Boolean)[0] || '';
+      },
+      velden: function (b, ctx) {
+        return [
+          V.tekst('Naam van de galerij', b, 'title', { hint: 'Bijvoorbeeld: Rondgang door de fabriek', uitleg: 'Voor schermlezers; staat niet in beeld.' }),
+          V.reeks(ctx, 'Afbeeldingen', b.items, {
+            naam: 'Afbeelding', min: 1, nieuw: function () { return { src: '', alt: '', caption: '' }; },
+            teken: function (x) { return h('div', { class: 'velden' }, V.beeld(x, ctx), h('div', { class: 'twee' }, V.tekst('Bijschrift', x, 'caption'), V.tekst('Alt-tekst', x, 'alt'))); }
+          })
+        ];
+      }
+    },
+    audio: {
+      naam: 'Audio', groep: 'Beeld en media', uitleg: 'Geluidsfragment of podcast',
+      nieuw: function () { return { t: 'audio', url: '', title: '', transcript: '' }; },
+      samenvatting: function (b) { return b.title || host(b.url) || 'Nog geen link'; },
+      waarschuwing: function (b) {
+        if (!b.url) return 'Nog geen link';
+        return /^https?:\/\//.test(b.url) ? '' : 'De link begint niet met https://';
+      },
+      velden: function (b) {
+        return [
+          V.tekst('Link naar het geluidsbestand', b, 'url', { type: 'url', hint: 'https://…/fragment.mp3', uitleg: 'Een directe link naar een mp3- of m4a-bestand, bijvoorbeeld op je eigen site. Voor Spotify of SoundCloud gebruik je het blok Insluiten.' }),
+          V.tekst('Titel', b, 'title', { hint: 'Bijvoorbeeld: Interview met de inkoper' }),
+          V.rijk('Uitgeschreven tekst (optioneel)', b, 'transcript', { hint: 'Voor wie niet kan luisteren of liever leest' })
+        ];
+      }
+    },
+    chart: {
+      naam: 'Grafiek', groep: 'Beeld en media', uitleg: 'Staaf- of cirkeldiagram',
+      nieuw: function () { return { t: 'chart', soort: 'staaf', title: '', unit: '', caption: '', items: [{ label: '', value: 0 }, { label: '', value: 0 }, { label: '', value: 0 }] }; },
+      samenvatting: function (b) { return b.title || b.items.map(function (x) { return x.label; }).filter(Boolean).join(', ') || 'Nog leeg'; },
+      waarschuwing: function (b) { return b.items.some(function (x) { return x.label && Number(x.value); }) ? '' : 'Nog geen gegevens'; },
+      velden: function (b, ctx) {
+        return [
+          h('div', { class: 'twee' },
+            V.keuze('Soort', b, 'soort', [['staaf', 'Staafdiagram'], ['cirkel', 'Cirkeldiagram']]),
+            V.tekst('Eenheid', b, 'unit', { hint: 'Bijvoorbeeld %, ton of €' })),
+          V.tekst('Titel', b, 'title'),
+          V.reeks(ctx, 'Gegevens', b.items, {
+            compact: true, drie: true, naam: 'Waarde', min: 1, nieuw: function () { return { label: '', value: 0 }; },
+            teken: function (x) {
+              return h('div', { class: 'twee' }, V.tekst(null, x, 'label', { hint: 'Label' }),
+                V.tekst(null, x, 'value', { type: 'number', hint: 'Getal', opInvoer: function (w) { x.value = Number(w) || 0; } }));
+            }
+          }),
+          V.tekst('Bron of toelichting', b, 'caption')
+        ];
+      }
+    },
+    hotspots: {
+      naam: 'Klikplaat', groep: 'Interactief', uitleg: 'Afbeelding met klikbare punten',
+      nieuw: function () { return { t: 'hotspots', src: '', alt: '', intro: '', points: [] }; },
+      samenvatting: function (b) { return b.points.length + (b.points.length === 1 ? ' punt' : ' punten') + (b.intro ? ' · ' + b.intro : ''); },
+      waarschuwing: function (b) { return beeldProbleem(b, true) || (b.points.length ? '' : 'Nog geen punten op de afbeelding'); },
+      velden: function (b, ctx) {
+        return [
+          V.beeld(b, ctx),
+          h('div', { class: 'twee' },
+            V.tekst('Alt-tekst', b, 'alt', { hint: 'Beschrijf wat er te zien is' }),
+            V.tekst('Aanwijzing boven de afbeelding', b, 'intro', { hint: 'Klik op de nummers in de afbeelding.' })),
+          b.src ? plaatsVlak(b, ctx) : h('div', { class: 'hulp', text: 'Kies eerst een afbeelding; daarna zet je er punten op.' }),
+          b.points.length ? V.reeks(ctx, 'Uitleg per punt', b.points, {
+            naam: 'Punt', min: 0, nieuw: function () { return { x: 50, y: 50, title: '', body: '' }; },
+            teken: function (p) { return h('div', { class: 'velden' }, V.tekst('Titel', p, 'title'), V.rijk('Uitleg', p, 'body')); }
+          }) : null
+        ];
+      }
+    },
+    scenario: {
+      naam: 'Scenario', groep: 'Interactief', uitleg: 'Gesprek met keuzes en gevolgen',
+      nieuw: function () {
+        var s1 = nieuwId('s'), s2 = nieuwId('s');
+        return {
+          t: 'scenario', persoon: '', rol: '', intro: '', slot: '',
+          scenes: [
+            { id: s1, text: '', choices: [{ text: '', reactie: '', uitleg: '', naar: s2 }, { text: '', reactie: '', uitleg: '', naar: s2 }] },
+            { id: s2, text: '', choices: [{ text: '', reactie: '', uitleg: '', naar: 'einde' }] }
+          ]
+        };
+      },
+      samenvatting: function (b) { return (b.persoon ? 'Gesprek met ' + b.persoon : 'Gesprek') + ' · ' + b.scenes.length + (b.scenes.length === 1 ? ' scène' : ' scènes'); },
+      waarschuwing: function (b) {
+        if (!naarTekst(b.scenes[0] && b.scenes[0].text)) return 'De eerste scène heeft nog geen tekst';
+        if (!b.scenes.some(function (s) { return s.choices.some(function (c) { return c.text.trim(); }); })) return 'Nog geen keuzes';
+        var einde = b.scenes.some(function (s) {
+          var echte = s.choices.filter(function (c) { return c.text.trim(); });
+          return !echte.length || echte.some(function (c) { return c.naar === 'einde'; });
+        });
+        return einde ? '' : 'Geen enkele keuze leidt naar het einde';
+      },
+      velden: function (b, ctx) {
+        var wie = b.persoon || 'de gesprekspartner';
+        var naarOpties = [['einde', 'Einde van het gesprek']].concat(b.scenes.map(function (sc, j) {
+          return [sc.id, 'Scène ' + (j + 1) + (naarTekst(sc.text) ? ': ' + eerste(sc.text, 40) : '')];
+        }));
+        return [
+          h('div', { class: 'twee' },
+            V.tekst('Gesprekspartner', b, 'persoon', { hint: 'Bijvoorbeeld: Sanne' }),
+            V.tekst('Rol', b, 'rol', { hint: 'Bijvoorbeeld: inkoper bij een textielbedrijf' })),
+          V.tekst('Inleiding', b, 'intro', { meer: true, rijen: 2, html: true, hint: 'Schets de situatie voor de student' }),
+          V.reeks(ctx, 'Scènes', b.scenes, {
+            naam: 'Scène', min: 1,
+            nieuw: function () { return { id: nieuwId('s'), text: '', choices: [{ text: '', reactie: '', uitleg: '', naar: 'einde' }] }; },
+            opVerwijder: function (p) {
+              var weg = b.scenes[p].id;
+              b.scenes.forEach(function (sc) { sc.choices.forEach(function (c) { if (c.naar === weg) c.naar = 'einde'; }); });
+            },
+            teken: function (sc) {
+              return h('div', { class: 'velden' },
+                V.tekst('Wat zegt of doet ' + wie + '?', sc, 'text', { meer: true, rijen: 2, html: true }),
+                V.reeks(ctx, 'Keuzes voor de student', sc.choices, {
+                  naam: 'Keuze', min: 0, nieuw: function () { return { text: '', reactie: '', uitleg: '', naar: 'einde' }; },
+                  teken: function (c) {
+                    return h('div', { class: 'velden', style: 'gap:6px' },
+                      V.tekst(null, c, 'text', { hint: 'Wat zegt of doet de student?' }),
+                      V.tekst(null, c, 'reactie', { hint: 'Reactie van ' + wie }),
+                      V.tekst(null, c, 'uitleg', { hint: 'Uitleg of feedback (optioneel)' }),
+                      V.keuze('Daarna', c, 'naar', naarOpties));
+                  }
+                }));
+            }
+          }),
+          V.tekst('Afsluiting', b, 'slot', { meer: true, rijen: 2, html: true, hint: 'Wat neemt de student mee uit dit gesprek?' }),
+          h('div', { class: 'hulp', text: 'Een scène zonder keuzes is ook een einde. De student kan het gesprek daarna opnieuw spelen.' })
+        ];
+      }
+    },
+    fill: {
+      naam: 'Invulvraag', groep: 'Vragen', uitleg: 'Woorden invullen in een zin',
+      nieuw: function () { return { t: 'fill', question: '', text: '', feedback: '', feedbackWrong: '' }; },
+      samenvatting: function (b) { return eerste(b.text.replace(/\[([^\]|]*)[^\]]*\]/g, '[$1]'), 90) || 'Nog leeg'; },
+      waarschuwing: function (b) { return invulPlekken(b.text).length ? '' : 'Zet minstens één antwoord tussen [haken]'; },
+      velden: function (b) {
+        var herkend = h('div', { class: 'herkend' });
+        function toon() {
+          var g = invulPlekken(b.text);
+          herkend.className = 'herkend' + (g.length ? '' : ' niet');
+          herkend.textContent = g.length ? (g.length === 1 ? '1 invulplek: ' : g.length + ' invulplekken: ') + g.join(', ') : 'Zet de woorden die de student moet invullen tussen [haken].';
+        }
+        toon();
+        return [
+          V.tekst('Opdracht (optioneel)', b, 'question', { html: true, hint: 'Vul de ontbrekende woorden in.' }),
+          V.tekst('Tekst met invulplekken', b, 'text', {
+            meer: true, rijen: 3, hint: 'De [R-ladder] telt tien strategieën, met [refuse|weigeren] bovenaan.',
+            uitleg: 'Zet elk antwoord tussen [haken]. Andere goede antwoorden scheid je met |, zoals [hergebruik|reuse]. Hoofdletters tellen niet mee.',
+            opInvoer: toon
+          }),
+          herkend,
+          V.tekst('Uitleg na een goed antwoord', b, 'feedback', { meer: true, rijen: 2 }),
+          V.tekst('Uitleg na een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
+        ];
+      }
+    },
+    divider: {
+      naam: 'Scheidingslijn', groep: 'Structuur', uitleg: 'Rustpunt tussen onderwerpen',
+      nieuw: function () { return { t: 'divider' }; },
+      samenvatting: function () { return 'Een korte lijn tussen twee onderwerpen.'; },
+      velden: function () { return []; }
+    },
     continue: {
       naam: 'Doorgaan-knop', groep: 'Structuur', uitleg: 'Verdeelt de module in stappen',
       nieuw: function () { return { t: 'continue' }; },
@@ -832,11 +1210,11 @@
   };
 
   var PALET = [
-    { groep: 'Tekst', items: ['text', 'list', 'quote'] },
-    { groep: 'Beeld en media', items: ['image', 'video', 'embed', 'links'] },
-    { groep: 'Interactief', items: ['tabs', 'accordion', 'cards', 'timeline', 'steps'] },
-    { groep: 'Vragen', items: ['quiz', 'quiz-multi', 'match', 'sort'] },
-    { groep: 'Structuur', items: ['continue'] }
+    { groep: 'Tekst', items: ['text', 'list', 'quote', 'note', 'table'] },
+    { groep: 'Beeld en media', items: ['image', 'imagetext', 'gallery', 'video', 'audio', 'embed', 'chart', 'links'] },
+    { groep: 'Interactief', items: ['hotspots', 'tabs', 'accordion', 'cards', 'timeline', 'steps', 'scenario'] },
+    { groep: 'Vragen', items: ['quiz', 'quiz-multi', 'fill', 'match', 'sort'] },
+    { groep: 'Structuur', items: ['continue', 'divider'] }
   ];
   function maakBlok(sleutel) {
     var b;
@@ -900,6 +1278,66 @@
 
   function les() { return S.cursus.lessons.find(function (l) { return l.id === S.lesId; }) || S.cursus.lessons[0] || null; }
 
+  /* Ongedaan maken en opnieuw: na elke wijziging, even later zodat een woord
+     typen één stap is, een momentopname van de cursus. */
+  var Geschiedenis = (function () {
+    var terug = [], vooruit = [], laatst = null, timer = null, MAX = 40;
+    function nu() { return JSON.stringify(S.cursus, function (k, v) { return k === 'updatedAt' ? undefined : v; }); }
+    function knoppen() {
+      var t = $('#knop-terug'), v = $('#knop-vooruit');
+      if (t) t.disabled = !terug.length && !timer;
+      if (v) v.disabled = !vooruit.length;
+    }
+    function begin() { clearTimeout(timer); timer = null; terug = []; vooruit = []; laatst = nu(); knoppen(); }
+    function vastleggen() {
+      clearTimeout(timer);
+      timer = null;
+      var x = nu();
+      if (x !== laatst) {
+        if (laatst !== null) { terug.push(laatst); if (terug.length > MAX) terug.shift(); }
+        vooruit = [];
+        laatst = x;
+      }
+      knoppen();
+    }
+    function plan() { clearTimeout(timer); timer = setTimeout(vastleggen, 700); knoppen(); }
+    function herstel(json) {
+      var c = JSON.parse(json);
+      var oud = S.cursus;
+      /* Id en voorbeeld-status horen bij de opslag, niet bij de inhoud. */
+      c.id = oud.id;
+      c.voorbeeld = oud.voorbeeld;
+      c.updatedAt = Date.now();
+      var na = c.lessons.map(function (l) { return l.id; });
+      S.verwijderdeLessen = S.verwijderdeLessen.filter(function (id) { return na.indexOf(id) < 0; })
+        .concat(oud.lessons.map(function (l) { return l.id; }).filter(function (id) { return na.indexOf(id) < 0 && S.verwijderdeLessen.indexOf(id) < 0; }));
+      S.cursus = c;
+      if (!c.lessons.some(function (l) { return l.id === S.lesId; })) S.lesId = c.lessons[0] ? c.lessons[0].id : null;
+      S.paletNa = null;
+      S.vuil['*'] = 1;
+      zetStatus('Niet opgeslagen…', 'bezig');
+      planBewaar();
+      renderStructuur();
+      renderEditor();
+      tekenVoorbeeld();
+      knoppen();
+    }
+    function stap(van, naar) {
+      if (timer) vastleggen();
+      if (!van.length) return false;
+      naar.push(laatst);
+      laatst = van.pop();
+      herstel(laatst);
+      return true;
+    }
+    return {
+      begin: begin,
+      plan: plan,
+      terug: function () { if (!stap(terug, vooruit)) melding('Er is niets meer om ongedaan te maken.'); },
+      vooruit: function () { stap(vooruit, terug); }
+    };
+  })();
+
   function gewijzigd(lesId) {
     if (S.cursus.voorbeeld) {
       /* Wie het voorbeeld aanpast, krijgt er een eigen kopie van. */
@@ -914,6 +1352,7 @@
     planBewaar();
     planVoorbeeld();
     werkKopBij(S.gekozenK);
+    Geschiedenis.plan();
   }
 
   /* ================================================================ structuur (links) */
@@ -937,12 +1376,12 @@
 
     var lijst = h('ol', { class: 'modulelijst' });
     c.lessons.forEach(function (l, i) {
-      var vragen = l.blocks.filter(function (b) { return b.t === 'quiz' || b.t === 'match' || b.t === 'sort'; }).length;
+      var vragen = l.blocks.filter(function (b) { return ['quiz', 'match', 'sort', 'fill'].indexOf(b.t) >= 0; }).length;
       var item = h('li', { class: 'module-item' + (l.id === S.lesId ? ' actief' : '') },
         h('span', { class: 'nr', text: String(i + 1) }),
         h('button', { type: 'button', class: 'kies', onclick: function () { kiesModule(l.id); } },
           h('strong', { text: l.title || 'Module ' + (i + 1) }),
-          h('small', { text: l.blocks.length + ' blokken · ' + vragen + (vragen === 1 ? ' vraag' : ' vragen') })),
+          h('small', { text: (l.toets ? 'Toets · ' : l.blocks.length + ' blokken · ') + vragen + (vragen === 1 ? ' vraag' : ' vragen') })),
         h('span', { class: 'mini' },
           icoonknop('omhoog', 'Module omhoog', function () { c.lessons.splice(i - 1, 0, c.lessons.splice(i, 1)[0]); gewijzigd('*'); renderStructuur(); renderEditor(); }, i === 0),
           icoonknop('omlaag', 'Module omlaag', function () { c.lessons.splice(i + 1, 0, c.lessons.splice(i, 1)[0]); gewijzigd('*'); renderStructuur(); renderEditor(); }, i === c.lessons.length - 1)));
@@ -1118,6 +1557,7 @@
         h('div', { class: 'knoprij', style: 'padding-bottom:1px' },
           S.sample ? h('button', { type: 'button', class: 'knop claude', onclick: dialoogVragen }, ico('ster'), 'Kennisvragen met Claude') : null,
           verwijderKnop('Module verwijderen', function () { verwijderModule(l); }))));
+    kop.append(toetsInstelling(l));
     ed.append(kop);
 
     var blokken = h('div', { class: 'blokken', id: 'blokken' });
@@ -1132,6 +1572,27 @@
     var onder = h('div', { class: 'toevoegen-onder' },
       S.paletNa === 'onder' ? palet('onder') : h('button', { type: 'button', class: 'knop', onclick: function () { S.paletNa = 'onder'; renderEditor(); } }, ico('plus'), 'Blok toevoegen'));
     ed.append(onder);
+  }
+
+  function toetsInstelling(l) {
+    var id = veldId();
+    var aan = h('input', { type: 'checkbox', id: id, checked: !!l.toets });
+    aan.addEventListener('change', function () {
+      if (aan.checked) l.toets = { slagen: 70, hussel: false };
+      else delete l.toets;
+      gewijzigd(l.id);
+      renderEditor();
+      renderStructuur();
+    });
+    var vak = h('div', { class: 'toets-instelling' + (l.toets ? ' aan' : '') }, h('label', { class: 'schakel', for: id }, aan, 'Deze module is een toets'));
+    if (l.toets) {
+      vak.append(
+        h('div', { class: 'toets-velden' },
+          V.tekst('Slaaggrens in procenten', l.toets, 'slagen', { type: 'number', opInvoer: function (w) { l.toets.slagen = w === '' ? 70 : Math.min(100, Math.max(0, Math.round(Number(w)) || 0)); } }),
+          V.schakel('Vragen in willekeurige volgorde', l.toets, 'hussel')),
+        h('div', { class: 'hulp', text: 'Elke vraag staat op een eigen scherm en heeft één poging. Aan het eind ziet de student de score en of de toets gehaald is. Opnieuw maken kan altijd; de beste score telt. De module telt pas als afgerond als de toets gehaald is. Een SCORM-pakket geeft de score door aan het LMS.' }));
+    }
+    return vak;
   }
 
   function invoegPlek(naIndex) {
@@ -1198,6 +1659,7 @@
           S.gekozenK = kopie._k;
           gewijzigd(l.id); renderEditor(); renderStructuur();
         }),
+        S.cursus.lessons.length > 1 ? icoonknop('verplaats', 'Naar een andere module', function () { dialoogVerplaats(l, b); }) : null,
         icoonknop('weg', 'Blok verwijderen', function () {
           l.blocks.splice(i, 1);
           S.laatstWeg = { lesId: l.id, index: i, blok: b };
@@ -1227,6 +1689,41 @@
     kaarten[b._k] = { kaart: kaart, samenv: samenv, waarsch: waarsch, naam: naamEl, blok: b, index: i };
     werkKopBij(b._k);
     return kaart;
+  }
+
+  function dialoogVerplaats(l, b) {
+    dialoog(function (sluit) {
+      var andere = S.cursus.lessons.filter(function (x) { return x !== l; });
+      var sel = h('select', { id: 'vp-module' }, andere.map(function (x) {
+        return h('option', { value: x.id }, (S.cursus.lessons.indexOf(x) + 1) + '. ' + (x.title || 'Module'));
+      }));
+      function doe(kopie) {
+        var doel = andere.find(function (x) { return x.id === sel.value; });
+        if (!doel) return;
+        var nb = b;
+        if (kopie) { nb = kloon(b); nb._k = nieuwId('b'); }
+        else l.blocks.splice(l.blocks.indexOf(b), 1);
+        doel.blocks.push(nb);
+        S.vuil[doel.id] = 1;
+        gewijzigd(l.id);
+        sluit();
+        renderEditor();
+        renderStructuur();
+        var type = TYPES[b.t] || TYPES.text;
+        melding(type.naam + (kopie ? ' gekopieerd naar ' : ' verplaatst naar ') + (doel.title || 'de module') + '.', {
+          tekst: 'Ga erheen', doe: function () { S.gekozenK = nb._k; kiesModule(doel.id); var k = kaarten[nb._k]; if (k) k.kaart.scrollIntoView({ block: 'center' }); }
+        });
+      }
+      return [
+        h('h2', null, 'Naar een andere module'),
+        h('p', null, 'Het blok komt onderaan de module die je kiest.'),
+        h('div', { class: 'veld' }, h('label', { for: 'vp-module' }, 'Module'), sel),
+        h('div', { class: 'voet' },
+          h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'),
+          h('button', { type: 'button', class: 'knop', onclick: function () { doe(true); } }, 'Kopiëren'),
+          h('button', { type: 'button', class: 'knop primair', onclick: function () { doe(false); } }, 'Verplaatsen'))
+      ];
+    });
   }
 
   function werkKopBij(k) {
@@ -1343,6 +1840,13 @@
   /* In je account (db, per persoon privé) als dat kan, anders in deze browser.
      Een cursus staat verdeeld over documenten: één voor de gegevens, één per
      module en één per afbeelding, zodat elk document klein blijft. */
+  /* Alles in een blok dat een afbeelding heeft. */
+  function beeldObjecten(b) {
+    if (b.t === 'image' || b.t === 'imagetext' || b.t === 'hotspots') return [b];
+    if (b.t === 'gallery') return b.items || [];
+    return [];
+  }
+
   var Opslag = {
     modus: 'geen',
     col: null,
@@ -1396,7 +1900,7 @@
             lessen.forEach(function (d) { if (d.exists) c.lessons.push(d.data().les); });
             c.lessons.forEach(function (l) {
               (l.blocks || []).forEach(function (b) {
-                if (b.t === 'image' && /^beeld:/.test(b.src)) b.src = beelden[b.src.slice(6)] || '';
+                beeldObjecten(b).forEach(function (x) { if (/^beeld:/.test(x.src)) x.src = beelden[x.src.slice(6)] || ''; });
               });
             });
             return c;
@@ -1410,11 +1914,12 @@
       var beelden = [];
       kaal.lessons.forEach(function (l) {
         l.blocks.forEach(function (b) {
-          if (b.t === 'image' && /^data:/.test(b.src)) {
-            var key = hash(b.src);
-            beelden.push([key, b.src]);
-            b.src = 'beeld:' + key;
-          }
+          beeldObjecten(b).forEach(function (x) {
+            if (!/^data:/.test(x.src)) return;
+            var key = hash(x.src);
+            beelden.push([key, x.src]);
+            x.src = 'beeld:' + key;
+          });
         });
       });
       var browserGelukt = Opslag.bewaarBrowser(zonderSleutels(c));
@@ -1577,6 +2082,7 @@
     Bestand.wissel(c);
     renderAlles();
     statusOpgeslagen();
+    Geschiedenis.begin();
   }
 
   function bewaarEerst() {
@@ -1704,17 +2210,27 @@
         var totaal = 0, goed = 0;
         cursus.lessons.forEach(function (l) {
           var ms = staat.modules[l.id];
-          var vragen = l.blocks.filter(function (b) { return b.t === 'quiz' || b.t === 'match' || b.t === 'sort'; }).length;
+          var vragen = l.blocks.filter(function (b) { return ['quiz', 'match', 'sort', 'fill'].indexOf(b.t) >= 0; }).length;
           totaal += vragen;
           if (ms) Object.keys(ms.antwoorden || {}).forEach(function (k) { if (ms.antwoorden[k].goed) goed++; });
         });
-        if (totaal) {
+        /* Met toetsen telt het gemiddelde van de beste toetsscores; anders alle vragen. */
+        var toetsen = cursus.lessons.filter(function (l) { return l.toets; });
+        var score = null;
+        if (toetsen.length) {
+          var som = 0;
+          toetsen.forEach(function (l) { som += (staat.modules[l.id] && staat.modules[l.id].score) || 0; });
+          score = Math.round(som / toetsen.length);
+        } else if (totaal) {
+          score = Math.min(100, Math.round((goed / totaal) * 100));
+        }
+        if (score !== null) {
           zet('cmi.core.score.min', 0);
           zet('cmi.core.score.max', 100);
-          zet('cmi.core.score.raw', Math.min(100, Math.round((goed / totaal) * 100)));
+          zet('cmi.core.score.raw', score);
         }
         var af = cursus.lessons.length > 0 && cursus.lessons.every(function (l) { return staat.modules[l.id] && staat.modules[l.id].af; });
-        if (af) zet('cmi.core.lesson_status', 'completed');
+        if (af) zet('cmi.core.lesson_status', toetsen.length ? 'passed' : 'completed');
         try { api.LMSCommit(''); } catch (e) { /* niets */ }
       }
     };
@@ -1900,6 +2416,10 @@
     '- {"t":"quiz","multi":false,"question":"vraag","options":[{"text":"antwoord","correct":true,"feedback":"waarom dit wel of niet klopt"}],"feedback":"uitleg na een goed antwoord","feedbackWrong":"uitleg na een fout antwoord"}  (3 tot 5 opties; multi true als er meer goede antwoorden zijn)',
     '- {"t":"match","question":"opdracht","pairs":[{"left":"begrip","right":"omschrijving"}],"feedback":"uitleg"}  (3 tot 6 paren)',
     '- {"t":"sort","question":"opdracht","piles":["categorie A","categorie B"],"items":[{"text":"onderdeel","pile":0}]}  (pile is de index in piles)',
+    '- {"t":"note","soort":"tip","title":"","body":"<p>korte tip, waarschuwing of opdracht</p>"}  (soort: tip, let, info of opdracht)',
+    '- {"t":"table","kop":true,"caption":"bron of toelichting","rows":[["kop","kop"],["cel","cel"]]}',
+    '- {"t":"fill","question":"opdracht","text":"zin met [antwoord] tussen haken; andere goede antwoorden met |, zoals [hergebruik|reuse]","feedback":"uitleg"}',
+    '- {"t":"scenario","persoon":"naam","rol":"rol","intro":"<p>situatie</p>","scenes":[{"id":"s1","text":"<p>wat de persoon zegt</p>","choices":[{"text":"wat de student zegt","reactie":"wat de persoon terugzegt","uitleg":"waarom dit wel of niet werkt","naar":"s2 of einde"}]}],"slot":"<p>wat de student meeneemt</p>"}  (2 tot 4 scènes, 2 of 3 keuzes per scène)',
     '- {"t":"continue"}  (doorgaan-knop: de student klikt door naar het volgende stuk; vragen erboven moeten eerst beantwoord zijn)'
   ].join('\n');
 
@@ -1996,7 +2516,7 @@
         niveau.value = 'hbo, hoofdfase';
         omvang = h('select', { id: 'cl-omvang' }, [['kort', 'Kort (3 tot 4 stappen)'], ['gemiddeld', 'Gemiddeld (5 tot 7 stappen)'], ['uitgebreid', 'Uitgebreid (8 tot 10 stappen)']].map(function (o) { return h('option', { value: o[0] }, o[1]); }));
         omvang.value = 'gemiddeld';
-        soorten = vinkjes([['interactief', 'Tabbladen, uitklapblokken, kaartjes en tijdlijnen'], ['quiz', 'Meerkeuzevragen'], ['match', 'Koppelvragen'], ['sort', 'Sorteeropdrachten']]);
+        soorten = vinkjes([['interactief', 'Tabbladen, uitklapblokken, kaartjes en tijdlijnen'], ['scenario', 'Een gespreksscenario', false], ['quiz', 'Meerkeuzevragen'], ['fill', 'Invulvragen', false], ['match', 'Koppelvragen'], ['sort', 'Sorteeropdrachten']]);
         return [
           h('div', { class: 'veld' }, h('label', { for: 'cl-onderwerp' }, 'Onderwerp, leerdoelen of brontekst'), onderwerp),
           h('div', { class: 'twee' }, h('div', { class: 'veld' }, h('label', { for: 'cl-niveau' }, 'Niveau'), niveau), h('div', { class: 'veld' }, h('label', { for: 'cl-omvang' }, 'Omvang'), omvang)),
@@ -2011,9 +2531,10 @@
           + 'Onderwerp, leerdoelen of brontekst van de docent:\n"""\n' + tekst.slice(0, 60000) + '\n"""\n\n'
           + SCHEMA + '\n\n'
           + 'Opbouw: begin met een korte inleiding (text) en de leerdoelen (list). Wissel uitleg af met '
-          + (wensen.indexOf('interactief') >= 0 ? 'interactieve blokken (tabs, accordion, cards, timeline of steps waar dat past)' : 'gewone tekstblokken')
+          + (wensen.indexOf('interactief') >= 0 ? 'interactieve blokken (tabs, accordion, cards, timeline, steps, note of table waar dat past)' : 'gewone tekstblokken')
+          + (wensen.indexOf('scenario') >= 0 ? '. Neem één scenario op waarin de student de stof toepast in een gesprek' : '')
           + '. Zet na elke 2 tot 4 blokken een {"t":"continue"}. Zet na elk inhoudelijk stuk één of twee kennisvragen en sluit af met een korte samenvatting.\n'
-          + 'Toegestane vraagvormen: ' + (['quiz', 'match', 'sort'].filter(function (s) { return wensen.indexOf(s) >= 0; }).join(', ') || 'quiz') + '.\n\n'
+          + 'Toegestane vraagvormen: ' + (['quiz', 'fill', 'match', 'sort'].filter(function (s) { return wensen.indexOf(s) >= 0; }).join(', ') || 'quiz') + '.\n\n'
           + REGELS + '\n\n'
           + 'Antwoord met alleen JSON: {"title":"titel van de module","blocks":[...]}';
       },
@@ -2040,7 +2561,10 @@
       if (b.t === 'cards') return b.items.map(function (i) { return naarTekst(i.front) + ': ' + naarTekst(i.back); }).join('\n');
       if (b.t === 'timeline') return b.items.map(function (i) { return i.date + ' ' + i.title + ': ' + naarTekst(i.body); }).join('\n');
       if (b.t === 'steps') return b.steps.map(function (s) { return s.title + ': ' + s.body; }).join('\n');
-      if (b.t === 'quote') return naarTekst(b.body);
+      if (b.t === 'quote' || b.t === 'note') return naarTekst(b.body);
+      if (b.t === 'imagetext') return (b.heading ? b.heading + '\n' : '') + naarTekst(b.body);
+      if (b.t === 'hotspots') return b.points.map(function (p) { return p.title + ': ' + naarTekst(p.body); }).join('\n');
+      if (b.t === 'table') return b.rows.map(function (r) { return r.join(' | '); }).join('\n');
       return '';
     }).filter(Boolean).join('\n\n');
     if (stof.length < 80) { melding('Schrijf eerst wat inhoud in deze module; Claude baseert de vragen daarop.'); return; }
@@ -2051,7 +2575,7 @@
       velden: function () {
         aantal = h('select', { id: 'cl-aantal' }, [3, 5, 8].map(function (n) { return h('option', { value: String(n) }, n + ' vragen'); }));
         aantal.value = '5';
-        soorten = vinkjes([['quiz', 'Meerkeuzevragen'], ['match', 'Koppelvragen'], ['sort', 'Sorteeropdrachten', false]]);
+        soorten = vinkjes([['quiz', 'Meerkeuzevragen'], ['fill', 'Invulvragen', false], ['match', 'Koppelvragen'], ['sort', 'Sorteeropdrachten', false]]);
         return [h('div', { class: 'veld' }, h('label', { for: 'cl-aantal' }, 'Aantal'), aantal), h('div', { class: 'veld' }, h('span', { class: 'veldlabel' }, 'Vraagvormen'), soorten)];
       },
       prompt: function () {
@@ -2063,7 +2587,7 @@
           + 'Antwoord met alleen JSON: {"blocks":[...]} met alleen vraagblokken.';
       },
       verwerk: function (data) {
-        var blokken = blokkenUit(data).filter(function (b) { return b.t === 'quiz' || b.t === 'match' || b.t === 'sort'; });
+        var blokken = blokkenUit(data).filter(function (b) { return ['quiz', 'fill', 'match', 'sort'].indexOf(b.t) >= 0; });
         if (!blokken.length) return 0;
         var laatste = l.blocks[l.blocks.length - 1];
         if (laatste && laatste.t !== 'continue') l.blocks.push(maakBlok('continue'));
@@ -2394,6 +2918,8 @@
       else if (w !== S.cursus.id) openCursus(w);
     });
     $('#knop-export').addEventListener('click', dialoogExport);
+    $('#knop-terug').addEventListener('click', function () { Geschiedenis.terug(); });
+    $('#knop-vooruit').addEventListener('click', function () { Geschiedenis.vooruit(); });
     $('#knop-opslaan').addEventListener('click', function () { Bestand.opslaan(); });
     $('#status').addEventListener('click', dialoogBewaren);
     $('#knop-openen').addEventListener('click', function () {
@@ -2410,6 +2936,13 @@
         e.preventDefault();
         Bestand.opslaan();
         return;
+      }
+      /* In een tekstveld doet de browser zelf ongedaan maken. */
+      var inVeld = e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]');
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !inVeld && !document.querySelector('.dialoog-achter')) {
+        var toets = e.key.toLowerCase();
+        if (toets === 'z' && !e.shiftKey) { e.preventDefault(); Geschiedenis.terug(); return; }
+        if (toets === 'y' || (toets === 'z' && e.shiftKey)) { e.preventDefault(); Geschiedenis.vooruit(); return; }
       }
       if (!e.altKey || e.ctrlKey || e.metaKey || document.querySelector('.dialoog-achter')) return;
       if (e.code === 'Digit1') { e.preventDefault(); Panelen.wissel('links'); }
@@ -2450,6 +2983,7 @@
   initVoorbeeld();
   koppel();
   renderAlles();
+  Geschiedenis.begin();
   zetStatus('Voorbeeld: wijzigingen maken een eigen kopie', '');
 
   cap('sample').then(function (s) { S.sample = s; if (s) { renderStructuur(); renderEditor(); } });
