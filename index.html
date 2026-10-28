@@ -731,6 +731,8 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 }
 
 .lezer { padding-top: 3rem; padding-bottom: 6rem; }
+/* Lange woorden en links breken af als ze niet passen, in plaats van uit te steken. */
+.lezer { overflow-wrap: break-word; }
 
 .moduletitel {
   margin: 0 0 2.5rem;
@@ -1232,6 +1234,7 @@ figure.schema figcaption {
   transition: opacity 0.2s ease;
 }
 .kaartje p { margin: 0; }
+.kaartje > div > div { max-width: 100%; overflow-wrap: anywhere; }
 .kaartje .voorkant { font-weight: 600; font-size: 1rem; }
 .kaartje .achterkant { font-size: 0.88rem; line-height: 1.55; opacity: 0; visibility: hidden; }
 .kaartje[aria-pressed="true"] { background: var(--go-groen-licht); border-color: var(--go-groen-medium); }
@@ -2165,8 +2168,14 @@ function Speler(root, cursus, opts) {
           kaartje.setAttribute('role', 'button');
           kaartje.tabIndex = 0;
           kaartje.setAttribute('aria-pressed', 'false');
-          kaartje.appendChild(html('div', 'voorkant', k.front));
-          kaartje.appendChild(html('div', 'achterkant', k.back));
+          /* De inhoud in één binnenblok, anders worden losse woorden, vet en
+             regeleinden elk een eigen flex-element en lopen ze door elkaar. */
+          var voor = el('div', 'voorkant');
+          voor.appendChild(html('div', null, k.front));
+          var achter = el('div', 'achterkant');
+          achter.appendChild(html('div', null, k.back));
+          kaartje.appendChild(voor);
+          kaartje.appendChild(achter);
           var draai = function () {
             kaartje.setAttribute('aria-pressed', kaartje.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
           };
