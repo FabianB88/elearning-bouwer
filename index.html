@@ -349,7 +349,7 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .keuzelijst strong { font-size: 14px; }
 .keuzelijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
 
-/* klikplaat, tabel en toets in de editor */
+/* klikplaat en tabel in de editor */
 .plaats-vlak { position: relative; border-radius: 8px; overflow: hidden; cursor: crosshair; border: 1px solid var(--lijn); background: var(--vlak); }
 .plaats-vlak img { width: 100%; height: auto; display: block; pointer-events: none; user-select: none; }
 .plaats-punt { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; border: 2px solid #fff; background: var(--accent); color: var(--op-accent); font-size: 12px; font-weight: 700; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35); cursor: grab; touch-action: none; padding: 0; }
@@ -361,10 +361,6 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .tabel-edit input { min-width: 110px; }
 .tabel-edit.met-kop tr:first-child input, .tabel-edit.met-zijkop td:first-child input { font-weight: 700; background: var(--accent-zacht); }
 .tabel-edit .tabel-actie { text-align: center; }
-.toets-instelling { border: 1px solid var(--lijn); border-radius: 10px; padding: 10px 12px; display: grid; gap: 10px; background: var(--paneel); }
-.toets-instelling.aan { border-color: var(--accent); background: var(--accent-zacht); }
-.toets-velden { display: flex; gap: 10px 18px; align-items: end; flex-wrap: wrap; }
-.toets-velden .veld { width: 170px; }
 .geschiedenis-knoppen { display: inline-flex; }
 
 .melding { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--tekst); color: var(--paneel); padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--schaduw); max-width: calc(100% - 32px); }
@@ -4944,7 +4940,6 @@ function Speler(root, cursus, opts) {
         h('div', { class: 'knoprij', style: 'padding-bottom:1px' },
           S.sample ? h('button', { type: 'button', class: 'knop claude', onclick: dialoogVragen }, ico('ster'), 'Kennisvragen met Claude') : null,
           verwijderKnop('Module verwijderen', function () { verwijderModule(l); }))));
-    kop.append(toetsInstelling(l));
     ed.append(kop);
 
     var blokken = h('div', { class: 'blokken', id: 'blokken' });
@@ -4959,27 +4954,6 @@ function Speler(root, cursus, opts) {
     var onder = h('div', { class: 'toevoegen-onder' },
       S.paletNa === 'onder' ? palet('onder') : h('button', { type: 'button', class: 'knop', onclick: function () { S.paletNa = 'onder'; renderEditor(); } }, ico('plus'), 'Blok toevoegen'));
     ed.append(onder);
-  }
-
-  function toetsInstelling(l) {
-    var id = veldId();
-    var aan = h('input', { type: 'checkbox', id: id, checked: !!l.toets });
-    aan.addEventListener('change', function () {
-      if (aan.checked) l.toets = { slagen: 70, hussel: false };
-      else delete l.toets;
-      gewijzigd(l.id);
-      renderEditor();
-      renderStructuur();
-    });
-    var vak = h('div', { class: 'toets-instelling' + (l.toets ? ' aan' : '') }, h('label', { class: 'schakel', for: id }, aan, 'Deze module is een toets'));
-    if (l.toets) {
-      vak.append(
-        h('div', { class: 'toets-velden' },
-          V.tekst('Slaaggrens in procenten', l.toets, 'slagen', { type: 'number', opInvoer: function (w) { l.toets.slagen = w === '' ? 70 : Math.min(100, Math.max(0, Math.round(Number(w)) || 0)); } }),
-          V.schakel('Vragen in willekeurige volgorde', l.toets, 'hussel')),
-        h('div', { class: 'hulp', text: 'Elke vraag staat op een eigen scherm en heeft één poging. Aan het eind ziet de student de score en of de toets gehaald is. Opnieuw maken kan altijd; de beste score telt. De module telt pas als afgerond als de toets gehaald is. Een SCORM-pakket geeft de score door aan het LMS.' }));
-    }
-    return vak;
   }
 
   function invoegPlek(naIndex) {

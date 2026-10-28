@@ -342,7 +342,7 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .keuzelijst strong { font-size: 14px; }
 .keuzelijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
 
-/* klikplaat, tabel en toets in de editor */
+/* klikplaat en tabel in de editor */
 .plaats-vlak { position: relative; border-radius: 8px; overflow: hidden; cursor: crosshair; border: 1px solid var(--lijn); background: var(--vlak); }
 .plaats-vlak img { width: 100%; height: auto; display: block; pointer-events: none; user-select: none; }
 .plaats-punt { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; border: 2px solid #fff; background: var(--accent); color: var(--op-accent); font-size: 12px; font-weight: 700; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35); cursor: grab; touch-action: none; padding: 0; }
@@ -354,10 +354,6 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .tabel-edit input { min-width: 110px; }
 .tabel-edit.met-kop tr:first-child input, .tabel-edit.met-zijkop td:first-child input { font-weight: 700; background: var(--accent-zacht); }
 .tabel-edit .tabel-actie { text-align: center; }
-.toets-instelling { border: 1px solid var(--lijn); border-radius: 10px; padding: 10px 12px; display: grid; gap: 10px; background: var(--paneel); }
-.toets-instelling.aan { border-color: var(--accent); background: var(--accent-zacht); }
-.toets-velden { display: flex; gap: 10px 18px; align-items: end; flex-wrap: wrap; }
-.toets-velden .veld { width: 170px; }
 .geschiedenis-knoppen { display: inline-flex; }
 
 .melding { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--tekst); color: var(--paneel); padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--schaduw); max-width: calc(100% - 32px); }

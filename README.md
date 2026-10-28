@@ -18,7 +18,6 @@ Een bouwer voor e-learnings in het format van de [e-learnings van de minor Circu
   - Linkknoppen, tabbladen, uitklapblok, begrippenkaartjes, tijdlijn, stappenplan, SVG-afbeelding.
   - Meerkeuze (een of meer juiste antwoorden, uitleg per antwoord), invulvraag (antwoorden tussen [haken], andere goede antwoorden met |), koppelvraag, sorteeropdracht.
   - Doorgaan-knop: deelt een module op in stukken; vragen en scenario's moeten eerst gedaan zijn. Scheidingslijn: een rustpunt tussen onderwerpen.
-- **Toets:** zet een module op *toets*. Elke vraag staat dan op een eigen scherm en heeft één poging; de vragen kunnen in willekeurige volgorde. Aan het eind ziet de student de score en of de slaaggrens gehaald is, en kan de toets opnieuw maken. De beste score telt; de module is pas afgerond als de toets gehaald is. In een SCORM-pakket gaat het gemiddelde van de toetsscores naar het LMS, met de status *passed*.
 - **Blok naar een andere module** verplaatsen of kopiëren, met de knop in de kop van het blok.
 - **Ongedaan maken en opnieuw** (Ctrl+Z en Ctrl+Y, of de pijlen bovenin). In een tekstveld doet Ctrl+Z gewoon ongedaan maken in dat veld.
 - **Vormgeving:** kies een designsjabloon voor de e-learning: *Green* (warm wit met saliegroen), *HAN huisstijl* (HAN-rood #E50056, zwart, wit en de HAN-grijzen; Avenir Next waar die op de computer staat, anders Roboto, zoals de HAN voor digitaal voorschrijft), *Helder blauw* of *Hoog contrast* (zwart op wit met Atkinson Hyperlegible). Daarover kun je een eigen accentkleur en lettertype zetten; de bouwer waarschuwt als witte tekst op je accentkleur slecht leesbaar is. Het ontwerp gaat mee in alle exports.
@@ -51,7 +50,7 @@ Na een wijziging in `src/`:
 node bouw.js
 ```
 
-Het formaat van een cursus is hetzelfde `course.json` als in minor-ce-elearnings. De speler en de bouwer moeten in de pas blijven met `assets/cursus.js` daar; een wijziging in een bloktype hoort in beide. Uitzondering voor nu: `embed`, `note`, `table`, `imagetext`, `gallery`, `audio`, `chart`, `hotspots`, `scenario`, `fill`, `divider` en de toetsinstelling van een module kent alleen deze speler. Een `course.json` met die blokken werkt in een export uit de bouwer, maar nog niet in minor-ce-elearnings.
+Het formaat van een cursus is hetzelfde `course.json` als in minor-ce-elearnings. De speler en de bouwer moeten in de pas blijven met `assets/cursus.js` daar; een wijziging in een bloktype hoort in beide. Uitzondering voor nu: `embed`, `note`, `table`, `imagetext`, `gallery`, `audio`, `chart`, `hotspots`, `scenario`, `fill` en `divider` kent alleen deze speler. Een `course.json` met die blokken werkt in een export uit de bouwer, maar nog niet in minor-ce-elearnings.
 
 ## Het artifact bijwerken
 

@@ -1557,7 +1557,6 @@
         h('div', { class: 'knoprij', style: 'padding-bottom:1px' },
           S.sample ? h('button', { type: 'button', class: 'knop claude', onclick: dialoogVragen }, ico('ster'), 'Kennisvragen met Claude') : null,
           verwijderKnop('Module verwijderen', function () { verwijderModule(l); }))));
-    kop.append(toetsInstelling(l));
     ed.append(kop);
 
     var blokken = h('div', { class: 'blokken', id: 'blokken' });
@@ -1572,27 +1571,6 @@
     var onder = h('div', { class: 'toevoegen-onder' },
       S.paletNa === 'onder' ? palet('onder') : h('button', { type: 'button', class: 'knop', onclick: function () { S.paletNa = 'onder'; renderEditor(); } }, ico('plus'), 'Blok toevoegen'));
     ed.append(onder);
-  }
-
-  function toetsInstelling(l) {
-    var id = veldId();
-    var aan = h('input', { type: 'checkbox', id: id, checked: !!l.toets });
-    aan.addEventListener('change', function () {
-      if (aan.checked) l.toets = { slagen: 70, hussel: false };
-      else delete l.toets;
-      gewijzigd(l.id);
-      renderEditor();
-      renderStructuur();
-    });
-    var vak = h('div', { class: 'toets-instelling' + (l.toets ? ' aan' : '') }, h('label', { class: 'schakel', for: id }, aan, 'Deze module is een toets'));
-    if (l.toets) {
-      vak.append(
-        h('div', { class: 'toets-velden' },
-          V.tekst('Slaaggrens in procenten', l.toets, 'slagen', { type: 'number', opInvoer: function (w) { l.toets.slagen = w === '' ? 70 : Math.min(100, Math.max(0, Math.round(Number(w)) || 0)); } }),
-          V.schakel('Vragen in willekeurige volgorde', l.toets, 'hussel')),
-        h('div', { class: 'hulp', text: 'Elke vraag staat op een eigen scherm en heeft één poging. Aan het eind ziet de student de score en of de toets gehaald is. Opnieuw maken kan altijd; de beste score telt. De module telt pas als afgerond als de toets gehaald is. Een SCORM-pakket geeft de score door aan het LMS.' }));
-    }
-    return vak;
   }
 
   function invoegPlek(naIndex) {
