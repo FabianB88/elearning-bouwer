@@ -214,7 +214,7 @@
     items.filter(Boolean).forEach(function (it) {
       if (it === '-') m.append(h('div', { class: 'menu-lijn', role: 'separator' }));
       else if (it.kop) m.append(h('div', { class: 'menu-kop', text: it.kop }));
-      else m.append(h('button', { type: 'button', role: 'menuitem', class: it.gevaar ? 'gevaar' : null, disabled: it.uit, onclick: function () { sluitMenu(true); it.doe(); } },
+      else m.append(h('button', { type: 'button', role: 'menuitem', class: it.gevaar ? 'gevaar' : null, disabled: it.uit, onclick: function () { sluitMenu(true); Geschiedenis.los(); it.doe(); Geschiedenis.los(); } },
         it.ico ? ico(it.ico) : h('span', { class: 'menu-leeg' }), it.tekst));
     });
     document.body.append(m);
@@ -263,7 +263,7 @@
       e.preventDefault();
       var van = items().indexOf(item);
       var naar = van + (e.key === 'ArrowUp' ? -1 : 1);
-      if (van >= 0 && naar >= 0 && naar < items().length) opVerplaats(van, naar, true);
+      if (van >= 0 && naar >= 0 && naar < items().length) { Geschiedenis.los(); opVerplaats(van, naar, true); Geschiedenis.los(); }
     });
     g.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
@@ -317,7 +317,7 @@
         if (!bezig || ev.type === 'pointercancel') return;
         bezig = false;
         var naar = plek > van ? plek - 1 : plek;
-        if (naar !== van) opVerplaats(van, naar, false);
+        if (naar !== van) { Geschiedenis.los(); opVerplaats(van, naar, false); Geschiedenis.los(); }
       }
       g.addEventListener('pointermove', beweeg);
       g.addEventListener('pointerup', los);
@@ -1059,8 +1059,8 @@
               return h('div', { style: 'display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:start' }, h('label', { class: 'juist-vink', title: 'Juist antwoord' }, vink), rij);
             }
           }),
-          V.tekst('Uitleg na een goed antwoord', b, 'feedback', { meer: true, rijen: 2 }),
-          V.tekst('Uitleg na een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
+          V.tekst('Uitleg na het nakijken', b, 'feedback', { meer: true, rijen: 2, uitleg: 'De student ziet dit na het nakijken, ook bij een fout antwoord als je hieronder niets invult.' }),
+          V.tekst('Andere uitleg bij een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
         ];
       }
     },
@@ -1076,8 +1076,8 @@
             compact: true, drie: true, naam: 'Paar', min: 2, nieuw: function () { return { left: '', right: '' }; },
             teken: function (p) { return h('div', { class: 'twee' }, V.tekst(null, p, 'left', { hint: 'Begrip' }), V.tekst(null, p, 'right', { hint: 'Omschrijving' })); }
           }),
-          V.tekst('Uitleg na een goed antwoord', b, 'feedback', { meer: true, rijen: 2 }),
-          V.tekst('Uitleg na een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
+          V.tekst('Uitleg na het nakijken', b, 'feedback', { meer: true, rijen: 2, uitleg: 'De student ziet dit na het nakijken, ook bij een fout antwoord als je hieronder niets invult.' }),
+          V.tekst('Andere uitleg bij een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
         ];
       }
     },
@@ -1322,8 +1322,8 @@
             opInvoer: toon
           }),
           herkend,
-          V.tekst('Uitleg na een goed antwoord', b, 'feedback', { meer: true, rijen: 2 }),
-          V.tekst('Uitleg na een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
+          V.tekst('Uitleg na het nakijken', b, 'feedback', { meer: true, rijen: 2, uitleg: 'De student ziet dit na het nakijken, ook bij een fout antwoord als je hieronder niets invult.' }),
+          V.tekst('Andere uitleg bij een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
         ];
       }
     },
@@ -1408,6 +1408,7 @@
     open: {},          /* blokken die dichtgeklapt zijn: _k -> true */
     dichtGeladen: {},  /* modules waarvan de bewaarde dichtgeklapte blokken al terug zijn */
     structuurOpen: {}, /* modules waarvan de blokken in de structuur zichtbaar zijn: id -> true/false */
+    paletAlles: ls('bouwer:palet') === 'alles', /* blokkenkiezer: alle soorten of alleen de standaard */
     paletNa: null,     /* index waarna het palet open staat, of -1 voor onderaan */
     vuil: {},
     verwijderdeLessen: [],
@@ -1493,6 +1494,7 @@
     return {
       begin: begin,
       plan: plan,
+      los: vastleggen,
       terug: function () { if (!stap(terug, vooruit)) melding('Er is niets meer om ongedaan te maken.'); },
       vooruit: function () { stap(vooruit, terug); }
     };
@@ -1801,7 +1803,9 @@
     if (!l.blocks.length) ed.append(h('p', { style: 'color:var(--tekst-2);text-align:center;margin:12px 0 0' }, 'Deze module is nog leeg. Voeg hieronder je eerste blok toe.'));
 
     var onder = h('div', { class: 'toevoegen-onder' },
-      S.paletNa === 'onder' ? palet('onder') : h('button', { type: 'button', class: 'knop', onclick: function () { S.paletNa = 'onder'; renderEditor(); } }, ico('plus'), 'Blok toevoegen'));
+      S.paletNa === 'onder' ? palet('onder') : h('div', { class: 'knoprij' },
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', false); } }, ico('plus'), 'Standaard blok'),
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', true); } }, 'Alle blokken')));
     ed.append(onder);
     Dicht.bewaar(l);
   }
@@ -1809,24 +1813,44 @@
   function invoegPlek(naIndex) {
     if (S.paletNa === naIndex) return palet(naIndex);
     var plek = h('div', { class: 'invoegen' },
-      h('button', { type: 'button', onclick: function () { S.paletNa = naIndex; renderEditor(); var p = $('.palet'); if (p) p.scrollIntoView({ block: 'nearest' }); } }, '+ Blok invoegen'));
+      h('button', { type: 'button', onclick: function () { openPalet(naIndex); } }, '+ Blok invoegen'));
     return plek;
   }
 
+  /* De blokken die je het vaakst nodig hebt; de rest staat onder Alle blokken. */
+  var STANDAARD = ['text', 'image', 'video', 'list', 'quiz', 'continue'];
+
+  function openPalet(naIndex, alles) {
+    if (alles !== undefined) { S.paletAlles = alles; ls('bouwer:palet', alles ? 'alles' : null); }
+    S.paletNa = naIndex;
+    renderEditor();
+    var p = $('.palet');
+    if (p) p.scrollIntoView({ block: 'nearest' });
+  }
+
   function palet(naIndex) {
+    function knop(sleutel) {
+      var type = TYPES[sleutel === 'quiz-multi' ? 'quiz' : sleutel];
+      var naam = sleutel === 'quiz-multi' ? 'Meerdere antwoorden' : sleutel === 'quiz' ? 'Meerkeuzevraag' : type.naam;
+      var uitleg = sleutel === 'quiz-multi' ? 'Meer dan één antwoord goed' : sleutel === 'quiz' ? 'Eén goed antwoord' : type.uitleg;
+      return h('button', { type: 'button', onclick: function () { voegBlokIn(sleutel, naIndex); } },
+        ico(sleutel === 'quiz-multi' ? 'quiz' : sleutel), h('strong', null, naam), h('small', null, uitleg));
+    }
+    function soort(alles, tekst) {
+      return h('button', { type: 'button', 'aria-pressed': S.paletAlles === alles ? 'true' : 'false', onclick: function () { if (S.paletAlles !== alles) openPalet(naIndex, alles); } }, tekst);
+    }
     var p = h('div', { class: 'palet', role: 'dialog', 'aria-label': 'Kies een blok' },
-      h('div', { style: 'display:flex;justify-content:space-between;align-items:center' },
+      h('div', { class: 'palet-kop' },
         h('strong', { style: 'font-family:var(--f-kop)' }, 'Kies een blok'),
+        h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Welke blokken' }, soort(false, 'Standaard'), soort(true, 'Alle blokken')),
         icoonknop('kruis', 'Sluiten', function () { S.paletNa = null; renderEditor(); })));
+    if (!S.paletAlles) {
+      p.append(h('div', { class: 'palet-knoppen' }, STANDAARD.map(knop)),
+        h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { openPalet(naIndex, true); } }, 'Meer soorten: tabbladen, kaartjes, scenario, koppelvraag…'));
+      return p;
+    }
     PALET.forEach(function (g) {
-      p.append(h('div', { class: 'palet-groep' }, h('h3', null, g.groep),
-        h('div', { class: 'palet-knoppen' }, g.items.map(function (sleutel) {
-          var type = TYPES[sleutel === 'quiz-multi' ? 'quiz' : sleutel];
-          var naam = sleutel === 'quiz-multi' ? 'Meerdere antwoorden' : sleutel === 'quiz' ? 'Meerkeuzevraag' : type.naam;
-          var uitleg = sleutel === 'quiz-multi' ? 'Meer dan één antwoord goed' : sleutel === 'quiz' ? 'Eén goed antwoord' : type.uitleg;
-          return h('button', { type: 'button', onclick: function () { voegBlokIn(sleutel, naIndex); } },
-            ico(sleutel === 'quiz-multi' ? 'quiz' : sleutel), h('strong', null, naam), h('small', null, uitleg));
-        }))));
+      p.append(h('div', { class: 'palet-groep' }, h('h3', null, g.groep), h('div', { class: 'palet-knoppen' }, g.items.map(knop))));
     });
     return p;
   }
@@ -2032,6 +2056,7 @@
         return h('option', { value: x.id }, (S.cursus.lessons.indexOf(x) + 1) + '. ' + (x.title || 'Module'));
       }));
       function doe(kopie) {
+        Geschiedenis.los();
         var doel = andere.find(function (x) { return x.id === sel.value; });
         if (!doel) return;
         var nb = b;
@@ -2658,7 +2683,7 @@
     if (zonderInhoud) uit.push(aantal(zonderInhoud, een + ' zonder inhoud', meer + ' zonder inhoud'));
     return uit;
   }
-  function zonderUitleg(b) { return leeg(b.feedback) ? ['Nog geen uitleg na een goed antwoord'] : []; }
+  function zonderUitleg(b) { return leeg(b.feedback) ? ['Nog geen uitleg na het nakijken'] : []; }
   var ONAF = {
     text: function (b) { return leeg(b.body) ? [b.heading ? 'Kop zonder tekst' : 'Nog leeg'] : []; },
     list: function (b) { var n = b.items.filter(leeg).length; return n ? [aantal(n, 'Een leeg punt', 'lege punten')] : []; },
@@ -3479,6 +3504,14 @@
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) { /* oudere browser */ }
     window.addEventListener('pagehide', function () { if (Object.keys(S.vuil).length) bewaarNu(); });
   }
+
+  /* Een blok of module toevoegen, verplaatsen of verwijderen is één stap bij
+     ongedaan maken, ook vlak na het typen. */
+  function alsStap(fn) { return function () { Geschiedenis.los(); var r = fn.apply(this, arguments); Geschiedenis.los(); return r; }; }
+  voegBlokIn = alsStap(voegBlokIn);
+  nieuweModule = alsStap(nieuweModule);
+  verwijderModule = alsStap(verwijderModule);
+  verplaatsNaar = alsStap(verplaatsNaar);
 
   /* Opstarten: eerst het voorbeeld tonen, dan opslag en Claude erbij. */
   S.cursus = voorbeeldCursus();

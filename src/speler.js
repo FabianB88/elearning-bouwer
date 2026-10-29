@@ -165,6 +165,9 @@ function Speler(root, cursus, opts) {
       var k = Math.floor(volgende() * (j + 1));
       var tmp = volgorde[j]; volgorde[j] = volgorde[k]; volgorde[k] = tmp;
     }
+    /* Toevallig de oorspronkelijke volgorde: dan één plek doorschuiven, zodat
+       de antwoorden nooit gewoon op volgorde staan. */
+    if (aantal > 1 && volgorde.every(function (v, i) { return v === i; })) volgorde.push(volgorde.shift());
     return volgorde;
   }
 
@@ -348,16 +351,19 @@ function Speler(root, cursus, opts) {
           houder.appendChild(externVoorbeeld('video', titel, bron));
           return houder;
         }
-        if (blok.url && !blok.youtube && !blok.vimeo) {
+        /* Een los geopend bestand (file://) geeft geen herkomst mee, en dan
+           weigert YouTube af te spelen (fout 153). Dan een knop naar YouTube. */
+        var alsBestand = blok.youtube && location.protocol === 'file:';
+        if ((blok.url && !blok.youtube && !blok.vimeo) || alsBestand) {
           /* Een video op een site die niet ingesloten wil worden. */
           var ext = el('a', 'video-extern');
-          ext.href = blok.url;
+          ext.href = alsBestand ? bron : blok.url;
           ext.target = '_blank';
           ext.rel = 'noopener';
           ext.appendChild(el('span', 'speel', '▶'));
           var tekstje = el('span');
           tekstje.appendChild(el('strong', null, titel));
-          tekstje.appendChild(el('span', 'bron', 'Bekijk de video op ' + (host(blok.url) || 'de site van de maker') + ' ↗'));
+          tekstje.appendChild(el('span', 'bron', 'Bekijk de video op ' + (host(alsBestand ? bron : blok.url) || 'de site van de maker') + ' ↗'));
           ext.appendChild(tekstje);
           houder.appendChild(ext);
           return houder;
@@ -372,6 +378,9 @@ function Speler(root, cursus, opts) {
           fr.src = 'https://www.youtube-nocookie.com/embed/' + blok.youtube + '?' + params;
         }
         fr.title = titel;
+        /* YouTube wil weten op welke site hij staat; ook als de pagina zelf
+           strenger is ingesteld. */
+        fr.referrerPolicy = 'strict-origin-when-cross-origin';
         fr.loading = 'lazy';
         fr.allow = 'accelerometer; clipboard-write; encrypted-media; picture-in-picture; fullscreen';
         fr.allowFullscreen = true;
@@ -396,6 +405,7 @@ function Speler(root, cursus, opts) {
         var fr2 = document.createElement('iframe');
         fr2.src = blok.url;
         fr2.title = blok.title || 'Ingesloten inhoud';
+        fr2.referrerPolicy = 'strict-origin-when-cross-origin';
         fr2.loading = 'lazy';
         fr2.allow = 'fullscreen; clipboard-write; autoplay; encrypted-media; picture-in-picture';
         fr2.allowFullscreen = true;
@@ -403,8 +413,10 @@ function Speler(root, cursus, opts) {
         fig2.appendChild(kader2);
         var onder = el('figcaption');
         if (blok.title) onder.appendChild(el('span', null, blok.title + ' · '));
-        var a2 = el('a', null, 'Open op ' + (host(blok.url) || 'de site') + ' ↗');
-        a2.href = blok.url;
+        var gewoon = /^https?:\/\//i.test(blok.bron || '') ? blok.bron : blok.url;
+        onder.appendChild(el('span', null, 'Zie je niets? '));
+        var a2 = el('a', null, 'Open op ' + (host(gewoon) || 'de site') + ' ↗');
+        a2.href = gewoon;
         a2.target = '_blank';
         a2.rel = 'noopener';
         onder.appendChild(a2);
@@ -881,7 +893,7 @@ function Speler(root, cursus, opts) {
   /* De gaten staan tussen [haken]; met | scheid je andere goede antwoorden,
      zoals [hergebruik|reuse]. Hoofdletters en leestekens tellen niet mee. */
   function normaal(s) {
-    return String(s || '').toLowerCase().replace(/\s+/g, ' ').replace(/^[\s.,;:!?]+|[\s.,;:!?]+$/g, '');
+    return String(s || '').toLowerCase().replace(/[-‐–]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s.,;:!?]+|[\s.,;:!?]+$/g, '');
   }
 
   function tekenInvul(blok, moduleId, segIndex, blokIndex, opWijziging) {
@@ -1633,9 +1645,17 @@ function Speler(root, cursus, opts) {
         o.addEventListener('click', toonStart);
         knoppen.appendChild(o);
         slot.appendChild(knoppen);
+        var nogOpen = el('div', 'doorgaan');
+        var nogHint = el('div', 'hint', '');
+        nogOpen.appendChild(nogHint);
+        seg.appendChild(nogOpen);
         seg.appendChild(slot);
 
         herbeoordeel = function () {
+          var open = opts.allesTonen ? 0 : openVragen(index);
+          slot.hidden = open > 0;
+          nogOpen.hidden = !open;
+          nogHint.textContent = open === 1 ? 'Beantwoord de vraag hierboven om de module af te ronden.' : 'Beantwoord de ' + open + ' vragen hierboven om de module af te ronden.';
           if (openVragen(index) === 0 && !ms.af && !opts.allesTonen) {
             ms.af = true;
             bewaar();

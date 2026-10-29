@@ -359,6 +359,8 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
   box-shadow: var(--schaduw); padding: 14px;
   display: grid; gap: 12px;
 }
+.palet-kop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.palet-kop strong { margin-right: auto; }
 .palet-groep h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--tekst-2); margin-bottom: 6px; font-family: var(--f-tekst); font-weight: 700; }
 .palet-knoppen { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .palet-knoppen button {
@@ -1956,6 +1958,9 @@ function Speler(root, cursus, opts) {
       var k = Math.floor(volgende() * (j + 1));
       var tmp = volgorde[j]; volgorde[j] = volgorde[k]; volgorde[k] = tmp;
     }
+    /* Toevallig de oorspronkelijke volgorde: dan één plek doorschuiven, zodat
+       de antwoorden nooit gewoon op volgorde staan. */
+    if (aantal > 1 && volgorde.every(function (v, i) { return v === i; })) volgorde.push(volgorde.shift());
     return volgorde;
   }
 
@@ -2139,16 +2144,19 @@ function Speler(root, cursus, opts) {
           houder.appendChild(externVoorbeeld('video', titel, bron));
           return houder;
         }
-        if (blok.url && !blok.youtube && !blok.vimeo) {
+        /* Een los geopend bestand (file://) geeft geen herkomst mee, en dan
+           weigert YouTube af te spelen (fout 153). Dan een knop naar YouTube. */
+        var alsBestand = blok.youtube && location.protocol === 'file:';
+        if ((blok.url && !blok.youtube && !blok.vimeo) || alsBestand) {
           /* Een video op een site die niet ingesloten wil worden. */
           var ext = el('a', 'video-extern');
-          ext.href = blok.url;
+          ext.href = alsBestand ? bron : blok.url;
           ext.target = '_blank';
           ext.rel = 'noopener';
           ext.appendChild(el('span', 'speel', '▶'));
           var tekstje = el('span');
           tekstje.appendChild(el('strong', null, titel));
-          tekstje.appendChild(el('span', 'bron', 'Bekijk de video op ' + (host(blok.url) || 'de site van de maker') + ' ↗'));
+          tekstje.appendChild(el('span', 'bron', 'Bekijk de video op ' + (host(alsBestand ? bron : blok.url) || 'de site van de maker') + ' ↗'));
           ext.appendChild(tekstje);
           houder.appendChild(ext);
           return houder;
@@ -2163,6 +2171,9 @@ function Speler(root, cursus, opts) {
           fr.src = 'https://www.youtube-nocookie.com/embed/' + blok.youtube + '?' + params;
         }
         fr.title = titel;
+        /* YouTube wil weten op welke site hij staat; ook als de pagina zelf
+           strenger is ingesteld. */
+        fr.referrerPolicy = 'strict-origin-when-cross-origin';
         fr.loading = 'lazy';
         fr.allow = 'accelerometer; clipboard-write; encrypted-media; picture-in-picture; fullscreen';
         fr.allowFullscreen = true;
@@ -2187,6 +2198,7 @@ function Speler(root, cursus, opts) {
         var fr2 = document.createElement('iframe');
         fr2.src = blok.url;
         fr2.title = blok.title || 'Ingesloten inhoud';
+        fr2.referrerPolicy = 'strict-origin-when-cross-origin';
         fr2.loading = 'lazy';
         fr2.allow = 'fullscreen; clipboard-write; autoplay; encrypted-media; picture-in-picture';
         fr2.allowFullscreen = true;
@@ -2194,8 +2206,10 @@ function Speler(root, cursus, opts) {
         fig2.appendChild(kader2);
         var onder = el('figcaption');
         if (blok.title) onder.appendChild(el('span', null, blok.title + ' · '));
-        var a2 = el('a', null, 'Open op ' + (host(blok.url) || 'de site') + ' ↗');
-        a2.href = blok.url;
+        var gewoon = /^https?:\/\//i.test(blok.bron || '') ? blok.bron : blok.url;
+        onder.appendChild(el('span', null, 'Zie je niets? '));
+        var a2 = el('a', null, 'Open op ' + (host(gewoon) || 'de site') + ' ↗');
+        a2.href = gewoon;
         a2.target = '_blank';
         a2.rel = 'noopener';
         onder.appendChild(a2);
@@ -2672,7 +2686,7 @@ function Speler(root, cursus, opts) {
   /* De gaten staan tussen [haken]; met | scheid je andere goede antwoorden,
      zoals [hergebruik|reuse]. Hoofdletters en leestekens tellen niet mee. */
   function normaal(s) {
-    return String(s || '').toLowerCase().replace(/\s+/g, ' ').replace(/^[\s.,;:!?]+|[\s.,;:!?]+$/g, '');
+    return String(s || '').toLowerCase().replace(/[-‐–]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s.,;:!?]+|[\s.,;:!?]+$/g, '');
   }
 
   function tekenInvul(blok, moduleId, segIndex, blokIndex, opWijziging) {
@@ -3424,9 +3438,17 @@ function Speler(root, cursus, opts) {
         o.addEventListener('click', toonStart);
         knoppen.appendChild(o);
         slot.appendChild(knoppen);
+        var nogOpen = el('div', 'doorgaan');
+        var nogHint = el('div', 'hint', '');
+        nogOpen.appendChild(nogHint);
+        seg.appendChild(nogOpen);
         seg.appendChild(slot);
 
         herbeoordeel = function () {
+          var open = opts.allesTonen ? 0 : openVragen(index);
+          slot.hidden = open > 0;
+          nogOpen.hidden = !open;
+          nogHint.textContent = open === 1 ? 'Beantwoord de vraag hierboven om de module af te ronden.' : 'Beantwoord de ' + open + ' vragen hierboven om de module af te ronden.';
           if (openVragen(index) === 0 && !ms.af && !opts.allesTonen) {
             ms.af = true;
             bewaar();
@@ -3687,7 +3709,7 @@ function Speler(root, cursus, opts) {
     items.filter(Boolean).forEach(function (it) {
       if (it === '-') m.append(h('div', { class: 'menu-lijn', role: 'separator' }));
       else if (it.kop) m.append(h('div', { class: 'menu-kop', text: it.kop }));
-      else m.append(h('button', { type: 'button', role: 'menuitem', class: it.gevaar ? 'gevaar' : null, disabled: it.uit, onclick: function () { sluitMenu(true); it.doe(); } },
+      else m.append(h('button', { type: 'button', role: 'menuitem', class: it.gevaar ? 'gevaar' : null, disabled: it.uit, onclick: function () { sluitMenu(true); Geschiedenis.los(); it.doe(); Geschiedenis.los(); } },
         it.ico ? ico(it.ico) : h('span', { class: 'menu-leeg' }), it.tekst));
     });
     document.body.append(m);
@@ -3736,7 +3758,7 @@ function Speler(root, cursus, opts) {
       e.preventDefault();
       var van = items().indexOf(item);
       var naar = van + (e.key === 'ArrowUp' ? -1 : 1);
-      if (van >= 0 && naar >= 0 && naar < items().length) opVerplaats(van, naar, true);
+      if (van >= 0 && naar >= 0 && naar < items().length) { Geschiedenis.los(); opVerplaats(van, naar, true); Geschiedenis.los(); }
     });
     g.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
@@ -3790,7 +3812,7 @@ function Speler(root, cursus, opts) {
         if (!bezig || ev.type === 'pointercancel') return;
         bezig = false;
         var naar = plek > van ? plek - 1 : plek;
-        if (naar !== van) opVerplaats(van, naar, false);
+        if (naar !== van) { Geschiedenis.los(); opVerplaats(van, naar, false); Geschiedenis.los(); }
       }
       g.addEventListener('pointermove', beweeg);
       g.addEventListener('pointerup', los);
@@ -4532,8 +4554,8 @@ function Speler(root, cursus, opts) {
               return h('div', { style: 'display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:start' }, h('label', { class: 'juist-vink', title: 'Juist antwoord' }, vink), rij);
             }
           }),
-          V.tekst('Uitleg na een goed antwoord', b, 'feedback', { meer: true, rijen: 2 }),
-          V.tekst('Uitleg na een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
+          V.tekst('Uitleg na het nakijken', b, 'feedback', { meer: true, rijen: 2, uitleg: 'De student ziet dit na het nakijken, ook bij een fout antwoord als je hieronder niets invult.' }),
+          V.tekst('Andere uitleg bij een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
         ];
       }
     },
@@ -4549,8 +4571,8 @@ function Speler(root, cursus, opts) {
             compact: true, drie: true, naam: 'Paar', min: 2, nieuw: function () { return { left: '', right: '' }; },
             teken: function (p) { return h('div', { class: 'twee' }, V.tekst(null, p, 'left', { hint: 'Begrip' }), V.tekst(null, p, 'right', { hint: 'Omschrijving' })); }
           }),
-          V.tekst('Uitleg na een goed antwoord', b, 'feedback', { meer: true, rijen: 2 }),
-          V.tekst('Uitleg na een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
+          V.tekst('Uitleg na het nakijken', b, 'feedback', { meer: true, rijen: 2, uitleg: 'De student ziet dit na het nakijken, ook bij een fout antwoord als je hieronder niets invult.' }),
+          V.tekst('Andere uitleg bij een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
         ];
       }
     },
@@ -4795,8 +4817,8 @@ function Speler(root, cursus, opts) {
             opInvoer: toon
           }),
           herkend,
-          V.tekst('Uitleg na een goed antwoord', b, 'feedback', { meer: true, rijen: 2 }),
-          V.tekst('Uitleg na een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
+          V.tekst('Uitleg na het nakijken', b, 'feedback', { meer: true, rijen: 2, uitleg: 'De student ziet dit na het nakijken, ook bij een fout antwoord als je hieronder niets invult.' }),
+          V.tekst('Andere uitleg bij een fout antwoord (optioneel)', b, 'feedbackWrong', { meer: true, rijen: 2 })
         ];
       }
     },
@@ -4881,6 +4903,7 @@ function Speler(root, cursus, opts) {
     open: {},          /* blokken die dichtgeklapt zijn: _k -> true */
     dichtGeladen: {},  /* modules waarvan de bewaarde dichtgeklapte blokken al terug zijn */
     structuurOpen: {}, /* modules waarvan de blokken in de structuur zichtbaar zijn: id -> true/false */
+    paletAlles: ls('bouwer:palet') === 'alles', /* blokkenkiezer: alle soorten of alleen de standaard */
     paletNa: null,     /* index waarna het palet open staat, of -1 voor onderaan */
     vuil: {},
     verwijderdeLessen: [],
@@ -4966,6 +4989,7 @@ function Speler(root, cursus, opts) {
     return {
       begin: begin,
       plan: plan,
+      los: vastleggen,
       terug: function () { if (!stap(terug, vooruit)) melding('Er is niets meer om ongedaan te maken.'); },
       vooruit: function () { stap(vooruit, terug); }
     };
@@ -5274,7 +5298,9 @@ function Speler(root, cursus, opts) {
     if (!l.blocks.length) ed.append(h('p', { style: 'color:var(--tekst-2);text-align:center;margin:12px 0 0' }, 'Deze module is nog leeg. Voeg hieronder je eerste blok toe.'));
 
     var onder = h('div', { class: 'toevoegen-onder' },
-      S.paletNa === 'onder' ? palet('onder') : h('button', { type: 'button', class: 'knop', onclick: function () { S.paletNa = 'onder'; renderEditor(); } }, ico('plus'), 'Blok toevoegen'));
+      S.paletNa === 'onder' ? palet('onder') : h('div', { class: 'knoprij' },
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', false); } }, ico('plus'), 'Standaard blok'),
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', true); } }, 'Alle blokken')));
     ed.append(onder);
     Dicht.bewaar(l);
   }
@@ -5282,24 +5308,44 @@ function Speler(root, cursus, opts) {
   function invoegPlek(naIndex) {
     if (S.paletNa === naIndex) return palet(naIndex);
     var plek = h('div', { class: 'invoegen' },
-      h('button', { type: 'button', onclick: function () { S.paletNa = naIndex; renderEditor(); var p = $('.palet'); if (p) p.scrollIntoView({ block: 'nearest' }); } }, '+ Blok invoegen'));
+      h('button', { type: 'button', onclick: function () { openPalet(naIndex); } }, '+ Blok invoegen'));
     return plek;
   }
 
+  /* De blokken die je het vaakst nodig hebt; de rest staat onder Alle blokken. */
+  var STANDAARD = ['text', 'image', 'video', 'list', 'quiz', 'continue'];
+
+  function openPalet(naIndex, alles) {
+    if (alles !== undefined) { S.paletAlles = alles; ls('bouwer:palet', alles ? 'alles' : null); }
+    S.paletNa = naIndex;
+    renderEditor();
+    var p = $('.palet');
+    if (p) p.scrollIntoView({ block: 'nearest' });
+  }
+
   function palet(naIndex) {
+    function knop(sleutel) {
+      var type = TYPES[sleutel === 'quiz-multi' ? 'quiz' : sleutel];
+      var naam = sleutel === 'quiz-multi' ? 'Meerdere antwoorden' : sleutel === 'quiz' ? 'Meerkeuzevraag' : type.naam;
+      var uitleg = sleutel === 'quiz-multi' ? 'Meer dan één antwoord goed' : sleutel === 'quiz' ? 'Eén goed antwoord' : type.uitleg;
+      return h('button', { type: 'button', onclick: function () { voegBlokIn(sleutel, naIndex); } },
+        ico(sleutel === 'quiz-multi' ? 'quiz' : sleutel), h('strong', null, naam), h('small', null, uitleg));
+    }
+    function soort(alles, tekst) {
+      return h('button', { type: 'button', 'aria-pressed': S.paletAlles === alles ? 'true' : 'false', onclick: function () { if (S.paletAlles !== alles) openPalet(naIndex, alles); } }, tekst);
+    }
     var p = h('div', { class: 'palet', role: 'dialog', 'aria-label': 'Kies een blok' },
-      h('div', { style: 'display:flex;justify-content:space-between;align-items:center' },
+      h('div', { class: 'palet-kop' },
         h('strong', { style: 'font-family:var(--f-kop)' }, 'Kies een blok'),
+        h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Welke blokken' }, soort(false, 'Standaard'), soort(true, 'Alle blokken')),
         icoonknop('kruis', 'Sluiten', function () { S.paletNa = null; renderEditor(); })));
+    if (!S.paletAlles) {
+      p.append(h('div', { class: 'palet-knoppen' }, STANDAARD.map(knop)),
+        h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { openPalet(naIndex, true); } }, 'Meer soorten: tabbladen, kaartjes, scenario, koppelvraag…'));
+      return p;
+    }
     PALET.forEach(function (g) {
-      p.append(h('div', { class: 'palet-groep' }, h('h3', null, g.groep),
-        h('div', { class: 'palet-knoppen' }, g.items.map(function (sleutel) {
-          var type = TYPES[sleutel === 'quiz-multi' ? 'quiz' : sleutel];
-          var naam = sleutel === 'quiz-multi' ? 'Meerdere antwoorden' : sleutel === 'quiz' ? 'Meerkeuzevraag' : type.naam;
-          var uitleg = sleutel === 'quiz-multi' ? 'Meer dan één antwoord goed' : sleutel === 'quiz' ? 'Eén goed antwoord' : type.uitleg;
-          return h('button', { type: 'button', onclick: function () { voegBlokIn(sleutel, naIndex); } },
-            ico(sleutel === 'quiz-multi' ? 'quiz' : sleutel), h('strong', null, naam), h('small', null, uitleg));
-        }))));
+      p.append(h('div', { class: 'palet-groep' }, h('h3', null, g.groep), h('div', { class: 'palet-knoppen' }, g.items.map(knop))));
     });
     return p;
   }
@@ -5505,6 +5551,7 @@ function Speler(root, cursus, opts) {
         return h('option', { value: x.id }, (S.cursus.lessons.indexOf(x) + 1) + '. ' + (x.title || 'Module'));
       }));
       function doe(kopie) {
+        Geschiedenis.los();
         var doel = andere.find(function (x) { return x.id === sel.value; });
         if (!doel) return;
         var nb = b;
@@ -6131,7 +6178,7 @@ function Speler(root, cursus, opts) {
     if (zonderInhoud) uit.push(aantal(zonderInhoud, een + ' zonder inhoud', meer + ' zonder inhoud'));
     return uit;
   }
-  function zonderUitleg(b) { return leeg(b.feedback) ? ['Nog geen uitleg na een goed antwoord'] : []; }
+  function zonderUitleg(b) { return leeg(b.feedback) ? ['Nog geen uitleg na het nakijken'] : []; }
   var ONAF = {
     text: function (b) { return leeg(b.body) ? [b.heading ? 'Kop zonder tekst' : 'Nog leeg'] : []; },
     list: function (b) { var n = b.items.filter(leeg).length; return n ? [aantal(n, 'Een leeg punt', 'lege punten')] : []; },
@@ -6952,6 +6999,14 @@ function Speler(root, cursus, opts) {
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) { /* oudere browser */ }
     window.addEventListener('pagehide', function () { if (Object.keys(S.vuil).length) bewaarNu(); });
   }
+
+  /* Een blok of module toevoegen, verplaatsen of verwijderen is één stap bij
+     ongedaan maken, ook vlak na het typen. */
+  function alsStap(fn) { return function () { Geschiedenis.los(); var r = fn.apply(this, arguments); Geschiedenis.los(); return r; }; }
+  voegBlokIn = alsStap(voegBlokIn);
+  nieuweModule = alsStap(nieuweModule);
+  verwijderModule = alsStap(verwijderModule);
+  verplaatsNaar = alsStap(verplaatsNaar);
 
   /* Opstarten: eerst het voorbeeld tonen, dan opslag en Claude erbij. */
   S.cursus = voorbeeldCursus();
