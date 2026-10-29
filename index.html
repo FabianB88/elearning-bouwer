@@ -2727,8 +2727,12 @@ function Speler(root, cursus, opts) {
     var opnieuwKnop = el('button', 'knop-klein stil', 'Opnieuw proberen');
     opnieuwKnop.type = 'button';
     opnieuwKnop.style.display = 'none';
+    var toonKnop = el('button', 'knop-klein stil', 'Laat het antwoord zien');
+    toonKnop.type = 'button';
+    toonKnop.style.display = 'none';
     acties.appendChild(nakijkKnop);
     acties.appendChild(opnieuwKnop);
+    acties.appendChild(toonKnop);
     kaart.appendChild(acties);
     var uitslagVak = el('div');
     kaart.appendChild(uitslagVak);
@@ -2741,25 +2745,45 @@ function Speler(root, cursus, opts) {
       });
     });
 
-    function toonUitslag(keuze) {
+    function klopt(g, waarde) { return g.goed.some(function (x) { return normaal(x) === normaal(waarde); }); }
+
+    /* Net als bij de meerkeuzevraag: het juiste antwoord verschijnt pas als
+       de student erom vraagt of niet meer mag herkansen. */
+    function toonUitslag(keuze, getoond) {
       var aantal = 0;
+      gaten.forEach(function (g, i) { if (klopt(g, keuze[i])) aantal++; });
+      var alles = aantal === gaten.length;
+      var open = alles || inToets || !!getoond;
+      Array.prototype.forEach.call(zin.querySelectorAll('.invul-correctie'), function (c) { c.remove(); });
       gaten.forEach(function (g, i) {
         g.inp.value = keuze[i];
         g.inp.readOnly = true;
-        var ok = g.goed.some(function (x) { return normaal(x) === normaal(keuze[i]); });
+        var ok = klopt(g, keuze[i]);
+        g.inp.classList.remove('goed', 'fout');
         g.inp.classList.add(ok ? 'goed' : 'fout');
-        if (ok) aantal++;
-        else g.inp.insertAdjacentElement('afterend', el('span', 'invul-correctie', g.goed[0]));
+        if (!ok && open) g.inp.insertAdjacentElement('afterend', el('span', 'invul-correctie', g.goed[0]));
       });
-      var alles = aantal === gaten.length;
+      var meer = gaten.length > 1;
+      var stand = meer ? aantal + ' van de ' + gaten.length + ' goed. ' : 'Niet goed. ';
+      var uitleg, tekst;
+      if (alles) {
+        uitleg = blok.feedback;
+        tekst = 'Klopt.';
+      } else if (open) {
+        uitleg = getoond ? (blok.feedback || blok.feedbackWrong) : (blok.feedbackWrong || blok.feedback);
+        tekst = (getoond ? '' : stand)
+          + (meer ? 'Achter de rode vakken staat het juiste antwoord.' : 'Het juiste antwoord staat erachter.');
+      } else {
+        uitleg = blok.feedbackWrong;
+        tekst = stand.trim();
+      }
       uitslagVak.innerHTML = '';
-      var uitleg = (!alles && blok.feedbackWrong) ? blok.feedbackWrong : blok.feedback;
       var u = el('div', 'uitslag ' + (alles ? 'goed' : 'fout'));
-      u.textContent = (alles ? 'Klopt.' : (gaten.length > 1 ? aantal + ' van de ' + gaten.length + ' goed.' : 'Niet helemaal.')
-        + ' Het juiste antwoord staat erachter.') + (uitleg ? ' ' + uitleg : '');
+      u.textContent = tekst + (uitleg ? ' ' + uitleg : '');
       uitslagVak.appendChild(u);
       nakijkKnop.style.display = 'none';
-      opnieuwKnop.style.display = (alles || inToets) ? 'none' : '';
+      opnieuwKnop.style.display = open ? 'none' : '';
+      toonKnop.style.display = open ? 'none' : '';
       return alles;
     }
 
@@ -2771,23 +2795,35 @@ function Speler(root, cursus, opts) {
       opWijziging();
     });
 
+    toonKnop.addEventListener('click', function () {
+      if (ms.antwoorden[id]) ms.antwoorden[id].getoond = true;
+      bewaar();
+      toonUitslag(gaten.map(function (g) { return g.inp.value; }), true);
+    });
+
+    /* Wat al goed was blijft staan; alleen de foute vakken gaan leeg. */
     opnieuwKnop.addEventListener('click', function () {
       delete ms.antwoorden[id];
       bewaar();
+      var eersteFout = null;
       gaten.forEach(function (g) {
         g.inp.readOnly = false;
-        g.inp.value = '';
+        if (!klopt(g, g.inp.value)) {
+          g.inp.value = '';
+          if (!eersteFout) eersteFout = g.inp;
+        }
         g.inp.classList.remove('goed', 'fout');
       });
-      Array.prototype.forEach.call(zin.querySelectorAll('.invul-correctie'), function (c) { c.remove(); });
       uitslagVak.innerHTML = '';
       nakijkKnop.style.display = '';
-      nakijkKnop.disabled = true;
+      nakijkKnop.disabled = leeg();
       opnieuwKnop.style.display = 'none';
+      toonKnop.style.display = 'none';
+      if (eersteFout) eersteFout.focus({ preventScroll: true });
       opWijziging();
     });
 
-    if (bewaard && bewaard.keuze && bewaard.keuze.length === gaten.length) toonUitslag(bewaard.keuze);
+    if (bewaard && bewaard.keuze && bewaard.keuze.length === gaten.length) toonUitslag(bewaard.keuze, bewaard.getoond);
     else if (bewaard) delete ms.antwoorden[id];
 
     kaart.dataset.vraag = id;
@@ -2956,41 +2992,63 @@ function Speler(root, cursus, opts) {
     var opnieuwKnop = el('button', 'knop-klein stil', 'Opnieuw proberen');
     opnieuwKnop.type = 'button';
     opnieuwKnop.style.display = 'none';
+    var toonKnop = el('button', 'knop-klein stil', 'Laat het antwoord zien');
+    toonKnop.type = 'button';
+    toonKnop.style.display = 'none';
     acties.appendChild(nakijkKnop);
     acties.appendChild(opnieuwKnop);
+    acties.appendChild(toonKnop);
     kaart.appendChild(acties);
 
     var uitslagVak = el('div');
     kaart.appendChild(uitslagVak);
 
-    function toonUitslag(keuze) {
+    /* Bij een fout antwoord blijft het juiste antwoord verborgen zolang de
+       student nog wil proberen; pas na "Laat het antwoord zien" (of in een
+       toets, waar herkansen niet kan) wordt het groen. */
+    function toonUitslag(keuze, getoond) {
       var juist = blok.options.map(function (o, i) { return o.correct ? i : -1; }).filter(function (i) { return i >= 0; });
       var goed = juist.length === keuze.length && juist.every(function (i) { return keuze.indexOf(i) >= 0; });
+      var open = goed || inToets || !!getoond;
 
       knoppen.forEach(function (b, i) {
+        var hier = keuze.indexOf(i) >= 0;
         b.disabled = true;
-        b.setAttribute('aria-pressed', keuze.indexOf(i) >= 0 ? 'true' : 'false');
-        if (blok.options[i].correct) b.classList.add('goed');
-        else if (keuze.indexOf(i) >= 0) b.classList.add('fout');
+        b.classList.remove('goed', 'fout');
+        b.setAttribute('aria-pressed', hier ? 'true' : 'false');
+        if (blok.options[i].correct && (open || hier)) b.classList.add('goed');
+        else if (hier) b.classList.add('fout');
+        var weg = b.querySelector('.optie-uitleg');
+        if (weg) weg.remove();
       });
 
       uitslagVak.innerHTML = '';
       var u = el('div', 'uitslag ' + (goed ? 'goed' : 'fout'));
-      var uitleg = (!goed && blok.feedbackWrong) ? blok.feedbackWrong : blok.feedback;
-      u.textContent = goed
-        ? 'Klopt.' + (uitleg ? ' ' + uitleg : '')
-        : 'Niet helemaal. De juiste antwoorden staan hierboven groen.' + (uitleg ? ' ' + uitleg : '');
+      var uitleg, tekst;
+      if (goed) {
+        uitleg = blok.feedback;
+        tekst = 'Klopt.';
+      } else if (open) {
+        uitleg = getoond ? (blok.feedback || blok.feedbackWrong) : (blok.feedbackWrong || blok.feedback);
+        tekst = (getoond ? '' : (blok.multi ? 'Niet helemaal. ' : 'Niet goed. '))
+          + (juist.length > 1 ? 'De juiste antwoorden staan hierboven groen.' : 'Het juiste antwoord staat hierboven groen.');
+      } else {
+        uitleg = blok.feedbackWrong;
+        tekst = blok.multi ? 'Niet helemaal. Wat groen is, heb je goed gekozen.' : 'Niet goed.';
+      }
+      u.textContent = tekst + (uitleg ? ' ' + uitleg : '');
       uitslagVak.appendChild(u);
 
       knoppen.forEach(function (b, i) {
         var o = blok.options[i];
         if (!o.feedback) return;
-        if (keuze.indexOf(i) < 0 && !(o.correct && !goed)) return;
+        if (keuze.indexOf(i) < 0 && !(o.correct && open && !goed)) return;
         b.children[1].appendChild(el('span', 'optie-uitleg', o.feedback));
       });
 
       nakijkKnop.style.display = 'none';
-      opnieuwKnop.style.display = (goed || inToets) ? 'none' : '';
+      opnieuwKnop.style.display = open ? 'none' : '';
+      toonKnop.style.display = open ? 'none' : '';
       return goed;
     }
 
@@ -3000,6 +3058,12 @@ function Speler(root, cursus, opts) {
       ms.antwoorden[id] = { keuze: gekozen.slice(), goed: goed };
       bewaar();
       opWijziging();
+    });
+
+    toonKnop.addEventListener('click', function () {
+      if (ms.antwoorden[id]) ms.antwoorden[id].getoond = true;
+      bewaar();
+      toonUitslag(gekozen, true);
     });
 
     opnieuwKnop.addEventListener('click', function () {
@@ -3018,10 +3082,11 @@ function Speler(root, cursus, opts) {
       nakijkKnop.style.display = '';
       nakijkKnop.disabled = true;
       opnieuwKnop.style.display = 'none';
+      toonKnop.style.display = 'none';
       opWijziging();
     });
 
-    if (bewaard && bewaard.keuze.every(function (i) { return i < blok.options.length; })) toonUitslag(bewaard.keuze);
+    if (bewaard && bewaard.keuze.every(function (i) { return i < blok.options.length; })) toonUitslag(bewaard.keuze, bewaard.getoond);
     else if (bewaard) { delete ms.antwoorden[id]; nagekeken = false; gekozen = []; }
 
     kaart.dataset.vraag = id;
@@ -3078,8 +3143,12 @@ function Speler(root, cursus, opts) {
     var opnieuwKnop = el('button', 'knop-klein stil', 'Opnieuw proberen');
     opnieuwKnop.type = 'button';
     opnieuwKnop.style.display = 'none';
+    var toonKnop = el('button', 'knop-klein stil', 'Laat het antwoord zien');
+    toonKnop.type = 'button';
+    toonKnop.style.display = 'none';
     acties.appendChild(nakijkKnop);
     acties.appendChild(opnieuwKnop);
+    acties.appendChild(toonKnop);
     kaart.appendChild(acties);
 
     var uitslagVak = el('div');
@@ -3110,30 +3179,45 @@ function Speler(root, cursus, opts) {
       werkBij();
     }
 
-    function toonUitslag(antwoord) {
+    function toonUitslag(antwoord, getoond) {
       nagekeken = true;
       keuze = antwoord.map(String);
       werkBij();
       var goedAantal = 0;
+      rijen.forEach(function (x) { if (keuze[x.r.sleutel] === String(x.r.juist)) goedAantal++; });
+      var alles = goedAantal === rijen.length;
+      var open = alles || inToets || !!getoond;
       rijen.forEach(function (x) {
         x.knoppen.forEach(function (k) { k.disabled = true; });
+        x.rij.classList.remove('goed', 'fout');
+        var weg = x.rij.querySelector('.keuzerij-correctie');
+        if (weg) weg.remove();
         if (keuze[x.r.sleutel] === String(x.r.juist)) {
           x.rij.classList.add('goed');
-          goedAantal++;
         } else {
           x.rij.classList.add('fout');
-          x.rij.appendChild(el('div', 'keuzerij-correctie', cfg.correctie(x.r)));
+          if (open) x.rij.appendChild(el('div', 'keuzerij-correctie', cfg.correctie(x.r)));
         }
       });
-      var alles = goedAantal === rijen.length;
+      var stand = goedAantal + ' van de ' + rijen.length + ' goed.';
+      var uitleg, tekst;
+      if (alles) {
+        uitleg = cfg.feedback;
+        tekst = cfg.allesGoed;
+      } else if (open) {
+        uitleg = getoond ? (cfg.feedback || cfg.feedbackWrong) : (cfg.feedbackWrong || cfg.feedback);
+        tekst = (getoond ? '' : stand + ' ') + cfg.deelsGoed;
+      } else {
+        uitleg = cfg.feedbackWrong;
+        tekst = stand;
+      }
       uitslagVak.innerHTML = '';
       var u = el('div', 'uitslag ' + (alles ? 'goed' : 'fout'));
-      var uitleg = (!alles && cfg.feedbackWrong) ? cfg.feedbackWrong : cfg.feedback;
-      u.textContent = (alles ? cfg.allesGoed : goedAantal + ' van de ' + rijen.length + ' goed. ' + cfg.deelsGoed)
-        + (uitleg ? ' ' + uitleg : '');
+      u.textContent = tekst + (uitleg ? ' ' + uitleg : '');
       uitslagVak.appendChild(u);
       nakijkKnop.style.display = 'none';
-      opnieuwKnop.style.display = (alles || inToets) ? 'none' : '';
+      opnieuwKnop.style.display = open ? 'none' : '';
+      toonKnop.style.display = open ? 'none' : '';
       return alles;
     }
 
@@ -3145,12 +3229,19 @@ function Speler(root, cursus, opts) {
       opWijziging();
     });
 
+    toonKnop.addEventListener('click', function () {
+      if (ms.antwoorden[id]) ms.antwoorden[id].getoond = true;
+      bewaar();
+      toonUitslag(keuze, true);
+    });
+
+    /* Wat al goed stond blijft staan; alleen de foute rijen gaan leeg. */
     opnieuwKnop.addEventListener('click', function () {
       delete ms.antwoorden[id];
       bewaar();
       nagekeken = false;
-      keuze = keuze.map(function () { return ''; });
       rijen.forEach(function (x) {
+        if (keuze[x.r.sleutel] !== String(x.r.juist)) keuze[x.r.sleutel] = '';
         x.knoppen.forEach(function (k) { k.disabled = false; });
         x.rij.classList.remove('goed', 'fout');
         var weg = x.rij.querySelector('.keuzerij-correctie');
@@ -3160,12 +3251,13 @@ function Speler(root, cursus, opts) {
       uitslagVak.innerHTML = '';
       nakijkKnop.style.display = '';
       opnieuwKnop.style.display = 'none';
+      toonKnop.style.display = 'none';
       opWijziging();
     });
 
     /* Een bewaard antwoord telt alleen als het nog bij deze vraag past; na
        een wijziging in de bouwer begint de vraag opnieuw. */
-    if (bewaard && bewaard.keuze.length === cfg.rijen.length) toonUitslag(bewaard.keuze);
+    if (bewaard && bewaard.keuze.length === cfg.rijen.length) toonUitslag(bewaard.keuze, bewaard.getoond);
     else if (bewaard) delete ms.antwoorden[id];
 
     kaart.dataset.vraag = id;
