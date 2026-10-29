@@ -96,7 +96,10 @@ h1, h2, h3 { font-family: var(--f-kop); letter-spacing: -0.01em; text-wrap: bala
 .status[data-soort="fout"]::before { background: var(--gevaar); }
 .status[data-soort="let"] { color: var(--accent-sterk); background: var(--accent-zacht); }
 .status[data-soort="let"]::before { background: var(--accent); }
-.bovenbalk .acties { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.bovenbalk .acties { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Controleren hoort bij de acties; op een telefoon staat hij naast de status. */
+#knop-controle { margin-left: auto; margin-right: -4px; flex: 0 0 auto; }
+@media (min-width: 761px) and (max-width: 899px) { .bovenbalk .acties { margin-left: auto; } }
 
 /* ---------------------------------------------------------------- knoppen en velden */
 .knop {
@@ -196,9 +199,30 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 
 .modulelijst { display: grid; gap: 4px; margin: 0 0 12px; padding: 0; list-style: none; }
 .module-item {
-  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 8px;
-  padding: 7px 6px 7px 8px; border-radius: 8px; border: 1px solid transparent;
+  display: grid; grid-template-columns: 18px 16px 26px minmax(0, 1fr); align-items: center; gap: 2px 6px;
+  padding: 6px 8px 6px 2px; border-radius: 8px; border: 1px solid transparent; position: relative;
 }
+.module-item .klap { width: 18px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--tekst-3); }
+.module-item .klap:hover:not(:disabled) { color: var(--tekst); background: var(--paneel); }
+.module-item .klap:disabled { opacity: 0.3; cursor: default; }
+.module-item .klap svg { width: 13px; height: 13px; transition: transform 0.12s ease; }
+.module-item .klap[aria-expanded="true"] svg { transform: rotate(90deg); }
+.module-item > .greep { width: 16px; }
+.blokkenlijst { grid-column: 3 / -1; list-style: none; margin: 4px 0 2px; padding: 0 0 0 4px; display: grid; gap: 1px; position: relative; border-left: 1px solid var(--lijn); }
+.blok-item { display: grid; grid-template-columns: 16px minmax(0, 1fr) 8px; align-items: center; gap: 4px; }
+.blok-item .greep { width: 16px; height: 24px; opacity: 0; }
+.blok-item:hover .greep, .blok-item .greep:focus-visible { opacity: 1; }
+@media (hover: none) { .blok-item .greep { opacity: 0.6; } }
+.blok-item .ga { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: center; gap: 7px; min-width: 0; text-align: left; border: 0; background: none; padding: 4px 6px; border-radius: 6px; font-size: 12px; color: var(--tekst-2); }
+.blok-item .ga svg { width: 14px; height: 14px; color: var(--accent); }
+.blok-item .ga .naam { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blok-item .ga:hover { background: var(--paneel); color: var(--tekst); }
+.blok-item.gekozen .ga { background: var(--paneel); color: var(--tekst); box-shadow: inset 2px 0 0 var(--accent); }
+.blok-item.rustig .ga { color: var(--tekst-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.blok-item.rustig .ga svg { color: var(--tekst-3); }
+.stip { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.stip.rood { background: var(--waarschuwing); }
+.stip.open { border: 1.5px solid var(--tekst-3); }
 .module-item:hover { background: var(--vlak); }
 .module-item.actief { background: var(--accent-zacht); border-color: var(--accent); }
 .module-item .nr { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--vlak); color: var(--tekst-2); border: 1px solid var(--lijn); }
@@ -242,12 +266,66 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
   border-radius: var(--r);
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
+.blok-kaart { scroll-margin-block: 12px; }
 .blok-kaart.gekozen { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-zacht); }
-.blok-kop { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; min-height: 42px; }
-.blok-kop .type { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tekst-2); background: none; border: 0; padding: 4px 0; }
+.blok-kop { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 4px; min-height: 42px; }
+.blok-kop .type { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tekst-2); background: none; border: 0; padding: 4px 4px 4px 0; border-radius: 6px; }
+.blok-kop .type:hover { color: var(--tekst); }
 .blok-kop .type svg { width: 15px; height: 15px; color: var(--accent); }
-.blok-kop .samenvatting { flex: 1; min-width: 0; font-size: 12.5px; color: var(--tekst-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blok-kop .type .pijl { display: inline-grid; place-items: center; width: 16px; }
+.blok-kop .type .pijl svg { width: 13px; height: 13px; color: var(--tekst-3); transform: rotate(90deg); transition: transform 0.12s ease; }
+.blok-kaart.dicht .blok-kop .type .pijl svg { transform: none; }
+.blok-kop .samenvatting { flex: 1; min-width: 0; font-size: 12.5px; color: var(--tekst-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.blok-kop .kop-punten { display: contents; }
+.blok-kop .waarschuwing { flex: 0 1 auto; min-width: 0; max-width: 45%; white-space: nowrap; }
+.blok-kop .waarschuwing svg { flex: 0 0 auto; }
+.blok-kop .waarschuwing .kort { overflow: hidden; text-overflow: ellipsis; }
 .blok-kop .acties { display: flex; gap: 0; }
+.greep { width: 22px; height: 30px; flex: 0 0 auto; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--tekst-3); cursor: grab; touch-action: none; }
+.greep:hover { color: var(--tekst); background: var(--vlak); }
+.greep svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+.sleepbaar.wordt-gesleept { opacity: 0.4; }
+body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-select: none; }
+.blokken, .modulelijst { position: relative; }
+.sleep-lijn { position: absolute; left: 0; right: 0; height: 3px; margin-top: -1.5px; border-radius: 2px; background: var(--accent); pointer-events: none; z-index: 3; }
+.onaf-label { display: inline-block; flex: 0 1 auto; min-width: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 600; color: var(--tekst-2); background: var(--vlak); border: 1px solid var(--lijn); padding: 2px 8px; border-radius: 6px; }
+.blokken-balk { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: -4px 0 -6px; font-size: 12px; color: var(--tekst-3); }
+.blokken-balk .aantal { margin-right: auto; }
+.knop-tekst { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 5px 8px; border-radius: 7px; font-size: 12px; font-weight: 600; color: var(--accent-sterk); }
+.knop-tekst svg { width: 14px; height: 14px; }
+.knop-tekst:hover:not(:disabled) { background: var(--accent-zacht); }
+.knop-tekst:disabled { color: var(--tekst-3); opacity: 0.6; cursor: default; }
+.editor-kop .titelrij { display: flex; align-items: center; gap: 6px; }
+.editor-kop .titelrij .titelveld { flex: 1 1 auto; min-width: 0; }
+.editor-kop .titelrij .icoonknop { width: 36px; height: 36px; }
+.deadline-regel { justify-self: start; display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 2px 4px; margin-top: -6px; border-radius: 6px; font-size: 12.5px; color: var(--tekst-2); }
+.deadline-regel svg { width: 14px; height: 14px; color: var(--accent); }
+.deadline-regel:hover { background: var(--vlak); color: var(--tekst); }
+
+/* uitklapmenu achter de drie puntjes */
+.menu { position: fixed; z-index: 70; min-width: 210px; max-width: calc(100vw - 16px); background: var(--paneel); border: 1px solid var(--lijn); border-radius: 10px; box-shadow: var(--schaduw); padding: 5px; display: grid; }
+.menu button { display: flex; align-items: center; gap: 9px; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 7px; font-size: 13px; color: var(--tekst); white-space: nowrap; }
+.menu button svg, .menu .menu-leeg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--tekst-2); }
+.menu button:hover:not(:disabled), .menu button:focus-visible { background: var(--vlak); outline: none; }
+.menu button:disabled { opacity: 0.4; cursor: default; }
+.menu button.gevaar, .menu button.gevaar svg { color: var(--gevaar); }
+.menu-lijn { height: 1px; background: var(--lijn); margin: 4px 6px; }
+.menu-kop { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--tekst-3); padding: 6px 10px 3px; }
+
+/* controleren */
+.teller { min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--vlak); color: var(--tekst-2); border: 1px solid var(--lijn); }
+.teller.fout { background: var(--waarschuwing-zacht); color: var(--waarschuwing); border-color: transparent; }
+.teller[hidden] { display: none; }
+#knop-controle .ico-vink { color: var(--accent); }
+.controle-groep { display: grid; gap: 8px; }
+.controle-groep h3 { font-size: 14px; }
+.controle-groep .hulp { margin: -4px 0 0; font-size: 12px; color: var(--tekst-3); }
+.controle-module { display: grid; gap: 2px; }
+.controle-module-naam { font-size: 11.5px; font-weight: 700; color: var(--tekst-2); margin: 4px 0 2px; }
+.controle-regel { display: grid; grid-template-columns: 8px minmax(90px, auto) minmax(0, 1fr); align-items: center; gap: 10px; text-align: left; border: 1px solid transparent; background: var(--vlak); padding: 7px 10px; border-radius: 8px; font-size: 13px; }
+.controle-regel:hover { border-color: var(--accent); background: var(--accent-zacht); }
+.controle-regel .waar { font-size: 11.5px; font-weight: 600; color: var(--tekst-2); }
+.controle-regel .wat { min-width: 0; }
 .blok-body { padding: 4px 14px 16px; display: grid; gap: 12px; }
 .blok-kaart.dicht .blok-body { display: none; }
 .waarschuwing { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--waarschuwing); background: var(--waarschuwing-zacht); padding: 3px 8px; border-radius: 6px; }
@@ -365,8 +443,8 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
   .werk .baan-voorbeeld { grid-column: 2; }
   #paneel-rechts { display: none; }
   /* Bovenbalk op één regel houden: Opslaan en Openen alleen als icoon. */
-  #knop-openen, #knop-opslaan { padding-inline: 10px; }
-  #knop-openen .lbl, #knop-opslaan .lbl, .merk-naam { display: none; }
+  #knop-openen, #knop-opslaan, #knop-controle { padding-inline: 10px; }
+  #knop-openen .lbl, #knop-opslaan .lbl, #knop-controle .lbl, .merk-naam { display: none; }
   .werk[data-tab="voorbeeld"] .baan-editor { display: none; }
   .werk:not([data-tab="voorbeeld"]) .baan-voorbeeld { display: none; }
   .werk .baan-voorbeeld { border-left: 0; }
@@ -384,11 +462,13 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
   .bovenbalk .acties { margin-left: 0; width: 100%; flex-wrap: nowrap; }
   .bovenbalk .acties .tabs-smal { flex: 1 1 auto; }
   .bovenbalk .acties .tabs-smal button { flex: 1 1 0; padding-inline: 6px; }
-  #knop-openen, #knop-opslaan { padding-inline: 10px; }
-  #knop-openen .lbl, #knop-opslaan .lbl, #knop-export .lbl { display: none; }
+  #knop-openen, #knop-opslaan, #knop-controle { padding-inline: 10px; }
+  #knop-openen .lbl, #knop-opslaan .lbl, #knop-controle .lbl, #knop-export .lbl { display: none; }
   #knop-export { padding-inline: 12px; }
   .cursuskeuze { flex: 1 1 0; max-width: none; }
-  .status { order: 4; width: 100%; max-width: none; font-size: 11px; justify-content: flex-start; }
+  .status { order: 4; flex: 1 1 0; max-width: none; font-size: 11px; justify-content: flex-start; }
+  #knop-controle { order: 5; margin: 0; min-height: 28px; padding: 2px 8px; }
+  .blokken-balk .aantal { display: none; }
   .twee, .reeks-rij.drie { grid-template-columns: minmax(0, 1fr); }
   .beeld-kies { grid-template-columns: minmax(0, 1fr); }
   .merk-naam { display: none; }
@@ -401,6 +481,7 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
     <div class="merk"><span class="merk-teken" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V6a2 2 0 0 1 2-2h12v13H6a2 2 0 0 0-2 2Z"/><path d="M4 19a2 2 0 0 0 2 2h12v-4"/><path d="M9 8h5M9 11h4"/></svg></span><span class="merk-naam">E-learning Bouwer</span></div>
     <div class="cursuskeuze"><label class="veldlabel" for="cursus-keuze" hidden>E-learning</label><select id="cursus-keuze" aria-label="Kies een e-learning"></select></div>
     <button type="button" class="status" id="status" data-soort="" title="Waar staat mijn werk?"><span class="status-tekst">Voorbeeld</span></button>
+    <button type="button" class="knop" id="knop-controle" title="Controleren"><svg class="ico-let" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><svg class="ico-vink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span class="lbl">Controleren</span><span class="teller" id="controle-teller" hidden></span></button>
     <div class="acties">
       <span class="segment-keuze tabs-smal" id="tabs-smal" role="group" aria-label="Weergave">
         <button type="button" data-tab="structuur" class="alleen-mobiel">Structuur</button>

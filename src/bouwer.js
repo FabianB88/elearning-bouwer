@@ -175,7 +175,15 @@
     paneelR: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
     schijf: '<path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/>',
     ster: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
-    let: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>'
+    let: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
+    pijl: '<path d="m9 6 6 6-6 6"/>',
+    greep: '<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>',
+    meer: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+    vink: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    omzetten: '<path d="M4 8h13l-3-3M20 16H7l3 3"/>',
+    datum: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+    inklap: '<path d="m7 15 5-5 5 5M7 20h10M7 4h10"/>',
+    uitklap: '<path d="m7 9 5 5 5-5M7 20h10M7 4h10"/>'
   };
   function ico(naam) {
     var t = document.createElement('template');
@@ -184,6 +192,138 @@
   }
   function icoonknop(naam, label, opklik, uit) {
     return h('button', { type: 'button', class: 'icoonknop', 'aria-label': label, title: label, disabled: uit, onclick: opklik }, ico(naam));
+  }
+
+  /* ================================================================ menu's en slepen */
+
+  /* Een knop met een uitklapmenu. Items zijn { tekst, ico, doe, uit, gevaar },
+     een kopje { kop } of '-' voor een lijn; null slaat een item over. */
+  var Menu = null;
+  function menuKnop(label, items) {
+    var knop = h('button', { type: 'button', class: 'icoonknop', 'aria-label': label, title: label, 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, ico('meer'));
+    knop.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (Menu && Menu.knop === knop) { sluitMenu(); return; }
+      openMenu(knop, typeof items === 'function' ? items() : items);
+    });
+    return knop;
+  }
+  function openMenu(knop, items) {
+    sluitMenu();
+    var m = h('div', { class: 'menu', role: 'menu' });
+    items.filter(Boolean).forEach(function (it) {
+      if (it === '-') m.append(h('div', { class: 'menu-lijn', role: 'separator' }));
+      else if (it.kop) m.append(h('div', { class: 'menu-kop', text: it.kop }));
+      else m.append(h('button', { type: 'button', role: 'menuitem', class: it.gevaar ? 'gevaar' : null, disabled: it.uit, onclick: function () { sluitMenu(true); it.doe(); } },
+        it.ico ? ico(it.ico) : h('span', { class: 'menu-leeg' }), it.tekst));
+    });
+    document.body.append(m);
+    /* Rechts uitgelijnd onder de knop; past het daar niet, dan erboven. */
+    var r = knop.getBoundingClientRect(), mh = m.offsetHeight, mw = m.offsetWidth;
+    var boven = r.bottom + 4 + mh > window.innerHeight - 8 && r.top - 4 - mh > 8;
+    m.style.top = (boven ? r.top - 4 - mh : Math.min(r.bottom + 4, Math.max(8, window.innerHeight - 8 - mh))) + 'px';
+    m.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - 8 - mw)) + 'px';
+    knop.setAttribute('aria-expanded', 'true');
+    Menu = { el: m, knop: knop };
+    var eerste = m.querySelector('button:not(:disabled)');
+    if (eerste) eerste.focus();
+  }
+  function sluitMenu(knopFocus) {
+    if (!Menu) return;
+    var x = Menu;
+    Menu = null;
+    x.el.remove();
+    x.knop.setAttribute('aria-expanded', 'false');
+    if (knopFocus && document.contains(x.knop)) x.knop.focus();
+  }
+  document.addEventListener('mousedown', function (e) { if (Menu && !Menu.el.contains(e.target) && !Menu.knop.contains(e.target)) sluitMenu(); });
+  document.addEventListener('scroll', function (e) { if (Menu && !Menu.el.contains(e.target)) sluitMenu(); }, true);
+  window.addEventListener('resize', function () { sluitMenu(); });
+  document.addEventListener('keydown', function (e) {
+    if (!Menu) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); sluitMenu(true); return; }
+    if (e.key === 'Tab') { sluitMenu(); return; }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    var knoppen = Array.prototype.slice.call(Menu.el.querySelectorAll('button:not(:disabled)'));
+    var i = knoppen.indexOf(document.activeElement);
+    var j = e.key === 'Home' ? 0 : e.key === 'End' ? knoppen.length - 1 : e.key === 'ArrowDown' ? (i + 1) % knoppen.length : (i - 1 + knoppen.length) % knoppen.length;
+    if (knoppen[j]) knoppen[j].focus();
+  }, true);
+
+  /* Een greep om aan te slepen. Werkt met muis en vinger; een lijn laat zien
+     waar het item terechtkomt, en vlak bij de rand scrolt de baan mee. Met de
+     pijltjestoetsen op de greep verplaats je het item één plek. */
+  function greep(label, item, lijst, opVerplaats) {
+    var g = h('button', { type: 'button', class: 'greep', 'aria-label': label + ': sleep, of gebruik de pijltjes omhoog en omlaag', title: 'Slepen om te verplaatsen' }, ico('greep'));
+    function ouder() { return lijst || item.parentNode; }
+    function items() { return Array.prototype.filter.call(ouder().children, function (x) { return x.classList.contains('sleepbaar'); }); }
+    g.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      var van = items().indexOf(item);
+      var naar = van + (e.key === 'ArrowUp' ? -1 : 1);
+      if (van >= 0 && naar >= 0 && naar < items().length) opVerplaats(van, naar, true);
+    });
+    g.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      var alle = items(), van = alle.indexOf(item), plek = van, y0 = e.clientY, laatsteY = e.clientY, bezig = false, rond = 0;
+      var L = ouder(), baan = L.closest('.baan');
+      var lijn = h('div', { class: 'sleep-lijn' });
+      try { g.setPointerCapture(e.pointerId); } catch (x) { /* oude browser */ }
+      function zetLijn() {
+        plek = alle.length;
+        for (var i = 0; i < alle.length; i++) {
+          var r = alle[i].getBoundingClientRect();
+          if (laatsteY < r.top + r.height / 2) { plek = i; break; }
+        }
+        var lr = L.getBoundingClientRect();
+        var naast = plek < alle.length ? alle[plek].getBoundingClientRect() : alle[alle.length - 1].getBoundingClientRect();
+        var vorige = plek > 0 ? alle[plek - 1].getBoundingClientRect() : null;
+        var y = plek === 0 ? naast.top - 3 : plek === alle.length ? naast.bottom + 3 : (vorige.bottom + naast.top) / 2;
+        lijn.style.top = (y - lr.top) + 'px';
+      }
+      function rand() {
+        if (!bezig) return;
+        if (baan) {
+          var br = baan.getBoundingClientRect(), stap = 0;
+          if (laatsteY < br.top + 48) stap = -Math.ceil((br.top + 48 - laatsteY) / 4);
+          else if (laatsteY > br.bottom - 48) stap = Math.ceil((laatsteY - br.bottom + 48) / 4);
+          if (stap) { baan.scrollTop += stap; zetLijn(); }
+        }
+        rond = requestAnimationFrame(rand);
+      }
+      function beweeg(ev) {
+        laatsteY = ev.clientY;
+        if (!bezig) {
+          if (Math.abs(laatsteY - y0) < 4) return;
+          bezig = true;
+          item.classList.add('wordt-gesleept');
+          document.body.classList.add('aan-het-slepen');
+          L.append(lijn);
+          rond = requestAnimationFrame(rand);
+        }
+        zetLijn();
+      }
+      function los(ev) {
+        g.removeEventListener('pointermove', beweeg);
+        g.removeEventListener('pointerup', los);
+        g.removeEventListener('pointercancel', los);
+        cancelAnimationFrame(rond);
+        lijn.remove();
+        item.classList.remove('wordt-gesleept');
+        document.body.classList.remove('aan-het-slepen');
+        if (!bezig || ev.type === 'pointercancel') return;
+        bezig = false;
+        var naar = plek > van ? plek - 1 : plek;
+        if (naar !== van) opVerplaats(van, naar, false);
+      }
+      g.addEventListener('pointermove', beweeg);
+      g.addEventListener('pointerup', los);
+      g.addEventListener('pointercancel', los);
+    });
+    return g;
   }
 
   /* ================================================================ links herkennen */
@@ -1266,6 +1406,8 @@
     lesId: null,
     gekozenK: null,
     open: {},          /* blokken die dichtgeklapt zijn: _k -> true */
+    dichtGeladen: {},  /* modules waarvan de bewaarde dichtgeklapte blokken al terug zijn */
+    structuurOpen: {}, /* modules waarvan de blokken in de structuur zichtbaar zijn: id -> true/false */
     paletNa: null,     /* index waarna het palet open staat, of -1 voor onderaan */
     vuil: {},
     verwijderdeLessen: [],
@@ -1277,6 +1419,24 @@
   };
 
   function les() { return S.cursus.lessons.find(function (l) { return l.id === S.lesId; }) || S.cursus.lessons[0] || null; }
+
+  /* Welke blokken dicht staan, onthoudt deze browser per module. Blokken
+     hebben alleen in de bouwer een sleutel, dus we bewaren hun plek. */
+  var Dicht = {
+    sleutel: function () { return 'bouwer:dicht:' + S.cursus.id; },
+    lees: function () { try { return JSON.parse(ls(Dicht.sleutel()) || '{}') || {}; } catch (e) { return {}; } },
+    herstel: function (l) {
+      if (S.dichtGeladen[l.id]) return;
+      S.dichtGeladen[l.id] = 1;
+      (Dicht.lees()[l.id] || []).forEach(function (i) { if (l.blocks[i]) S.open[l.blocks[i]._k] = true; });
+    },
+    bewaar: function (l) {
+      var x = Dicht.lees();
+      var dicht = l.blocks.map(function (b, i) { return S.open[b._k] ? i : -1; }).filter(function (i) { return i >= 0; });
+      if (dicht.length) x[l.id] = dicht; else delete x[l.id];
+      try { ls(Dicht.sleutel(), Object.keys(x).length ? JSON.stringify(x) : null); } catch (e) { /* opslag vol of uit */ }
+    }
+  };
 
   /* Ongedaan maken en opnieuw: na elke wijziging, even later zodat een woord
      typen één stap is, een momentopname van de cursus. */
@@ -1352,6 +1512,7 @@
     planBewaar();
     planVoorbeeld();
     werkKopBij(S.gekozenK);
+    planControle();
     Geschiedenis.plan();
   }
 
@@ -1377,14 +1538,22 @@
     var lijst = h('ol', { class: 'modulelijst' });
     c.lessons.forEach(function (l, i) {
       var vragen = l.blocks.filter(function (b) { return ['quiz', 'match', 'sort', 'fill'].indexOf(b.t) >= 0; }).length;
-      var item = h('li', { class: 'module-item' + (l.id === S.lesId ? ' actief' : '') },
+      var open = S.structuurOpen[l.id] !== undefined ? S.structuurOpen[l.id] : l.id === S.lesId;
+      var item = h('li', { class: 'module-item sleepbaar' + (l.id === S.lesId ? ' actief' : '') },
+        h('button', { type: 'button', class: 'klap', 'aria-expanded': open ? 'true' : 'false', 'aria-label': (open ? 'Blokken verbergen' : 'Blokken tonen') + ': ' + (l.title || 'module ' + (i + 1)), title: open ? 'Blokken verbergen' : 'Blokken tonen', disabled: !l.blocks.length,
+          onclick: function () { S.structuurOpen[l.id] = !open; renderStructuur(); } }, ico('pijl')),
         h('span', { class: 'nr', text: String(i + 1) }),
         h('button', { type: 'button', class: 'kies', onclick: function () { kiesModule(l.id); } },
           h('strong', { text: l.title || 'Module ' + (i + 1) }),
-          h('small', { text: (l.toets ? 'Toets · ' : l.blocks.length + ' blokken · ') + vragen + (vragen === 1 ? ' vraag' : ' vragen') })),
-        h('span', { class: 'mini' },
-          icoonknop('omhoog', 'Module omhoog', function () { c.lessons.splice(i - 1, 0, c.lessons.splice(i, 1)[0]); gewijzigd('*'); renderStructuur(); renderEditor(); }, i === 0),
-          icoonknop('omlaag', 'Module omlaag', function () { c.lessons.splice(i + 1, 0, c.lessons.splice(i, 1)[0]); gewijzigd('*'); renderStructuur(); renderEditor(); }, i === c.lessons.length - 1)));
+          h('small', { text: (l.toets ? 'Toets · ' : l.blocks.length + ' blokken · ') + vragen + (vragen === 1 ? ' vraag' : ' vragen') })));
+      item.querySelector('.nr').before(greep('Module ' + (i + 1), item, lijst, function (van, naar, toets) {
+        c.lessons.splice(naar, 0, c.lessons.splice(van, 1)[0]);
+        gewijzigd('*');
+        renderStructuur();
+        renderEditor();
+        if (toets) { var g = $('.modulelijst').children[naar]; if (g) g.querySelector('.greep').focus(); }
+      }));
+      if (open && l.blocks.length) item.append(blokkenlijst(l));
       lijst.append(item);
     });
 
@@ -1465,6 +1634,56 @@
             d.accent ? h('button', { type: 'button', class: 'knop klein', onclick: function () { d.accent = ''; wijzig(); renderStructuur(); } }, 'Sjabloonkleur') : null),
           kleurLet),
         h('div', { class: 'veld' }, h('label', { for: letterId, text: 'Lettertype' }), letter)));
+  }
+
+  /* De blokken van een module in de structuur: klikken springt erheen,
+     slepen verandert de volgorde. Een stip wijst op iets wat niet klopt
+     (vol) of nog niet af is (open). */
+  function blokkenlijst(l) {
+    var ol = h('ol', { class: 'blokkenlijst', 'aria-label': 'Blokken in ' + (l.title || 'deze module') });
+    l.blocks.forEach(function (b, i) {
+      var type = TYPES[b.t] || TYPES.text;
+      var rustig = b.t === 'continue' || b.t === 'divider';
+      var li = h('li', { class: 'blok-item sleepbaar' + (rustig ? ' rustig' : '') + (S.gekozenK === b._k ? ' gekozen' : ''), 'data-k': b._k });
+      li.append(
+        greep(type.naam, li, ol, function (van, naar, toets) {
+          l.blocks.splice(naar, 0, l.blocks.splice(van, 1)[0]);
+          gewijzigd(l.id);
+          renderStructuur();
+          if (l.id === S.lesId) renderEditor();
+          if (toets) { var x = $('.blok-item[data-k="' + b._k + '"] .greep'); if (x) x.focus(); }
+        }),
+        h('button', { type: 'button', class: 'ga', title: type.naam, onclick: function () { gaNaarBlok(l.id, b._k); } },
+          ico(b.t), h('span', { class: 'naam', text: rustig ? type.naam : type.samenvatting(b) })),
+        h('span', { class: 'stip' }));
+      ol.append(li);
+      werkStipBij(li, b);
+    });
+    return ol;
+  }
+
+  function werkStipBij(li, b) {
+    var p = blokPunten(b);
+    var stip = li.querySelector('.stip');
+    stip.className = 'stip' + (p.fout.length ? ' rood' : p.onaf.length ? ' open' : '');
+    stip.title = p.fout.concat(p.onaf).join(' · ');
+  }
+
+  /* Naar een blok springen, ook in een andere module; het blok klapt open. */
+  function gaNaarBlok(lesId, k) {
+    var doel = S.cursus.lessons.find(function (x) { return x.id === lesId; });
+    if (doel) Dicht.herstel(doel);
+    S.open[k] = false;
+    S.structuurOpen[lesId] = true;
+    if (lesId !== S.lesId) kiesModule(lesId);
+    else { renderEditor(); renderStructuur(); }
+    if (matchMedia('(max-width: 760px)').matches) zetTab('bewerken');
+    var x = kaarten[k];
+    if (!x) return;
+    x.kaart.scrollIntoView({ block: 'start' });
+    kiesBlok(k);
+    var veld = x.kaart.querySelector('.blok-body input, .blok-body textarea, .blok-body .rijk');
+    if (veld) veld.focus({ preventScroll: true });
   }
 
   /* De ingeklapte structuur: uitklappen, en snel van module wisselen. */
@@ -1549,15 +1768,28 @@
       gewijzigd(l.id);
     });
 
+    Dicht.herstel(l);
     var kop = h('div', { class: 'editor-kop' },
       h('div', { class: 'eyebrow', text: 'Module ' + nr + ' van ' + S.cursus.lessons.length }),
-      titelInp,
-      h('div', { class: 'rij' },
-        V.tekst('Afronden vóór (optioneel)', l, 'deadline', { hint: 'Bijvoorbeeld 14 september' }),
-        h('div', { class: 'knoprij', style: 'padding-bottom:1px' },
-          S.sample ? h('button', { type: 'button', class: 'knop claude', onclick: dialoogVragen }, ico('ster'), 'Kennisvragen met Claude') : null,
-          verwijderKnop('Module verwijderen', function () { verwijderModule(l); }))));
+      h('div', { class: 'titelrij' }, titelInp, menuKnop('Module: meer opties', function () {
+        return [
+          { tekst: l.deadline ? 'Afronden vóór wijzigen…' : 'Afronden vóór instellen…', ico: 'datum', doe: function () { dialoogDeadline(l); } },
+          { tekst: 'Module dupliceren', ico: 'kopie', doe: function () { dupliceerModule(l); } },
+          '-',
+          { tekst: 'Module verwijderen…', ico: 'weg', gevaar: true, doe: function () { dialoogVerwijderModule(l); } }
+        ];
+      })),
+      l.deadline ? h('button', { type: 'button', class: 'deadline-regel', title: 'Wijzigen', onclick: function () { dialoogDeadline(l); } }, ico('datum'), 'Afronden vóór ' + l.deadline) : null,
+      S.sample ? h('div', { class: 'knoprij' }, h('button', { type: 'button', class: 'knop klein claude', onclick: dialoogVragen }, ico('ster'), 'Kennisvragen met Claude')) : null);
     ed.append(kop);
+
+    if (l.blocks.length > 1) {
+      var aantalDicht = l.blocks.filter(function (b) { return S.open[b._k]; }).length;
+      ed.append(h('div', { class: 'blokken-balk' },
+        h('span', { class: 'aantal', text: l.blocks.length + ' blokken' + (aantalDicht ? ', ' + aantalDicht + ' ingeklapt' : '') }),
+        h('button', { type: 'button', class: 'knop-tekst', disabled: aantalDicht === l.blocks.length, onclick: function () { alleBlokken(l, true); } }, ico('inklap'), 'Alles inklappen'),
+        h('button', { type: 'button', class: 'knop-tekst', disabled: !aantalDicht, onclick: function () { alleBlokken(l, false); } }, ico('uitklap'), 'Alles uitklappen')));
+    }
 
     var blokken = h('div', { class: 'blokken', id: 'blokken' });
     blokken.append(invoegPlek(-1));
@@ -1571,6 +1803,7 @@
     var onder = h('div', { class: 'toevoegen-onder' },
       S.paletNa === 'onder' ? palet('onder') : h('button', { type: 'button', class: 'knop', onclick: function () { S.paletNa = 'onder'; renderEditor(); } }, ico('plus'), 'Blok toevoegen'));
     ed.append(onder);
+    Dicht.bewaar(l);
   }
 
   function invoegPlek(naIndex) {
@@ -1619,38 +1852,25 @@
   function blokKaart(b, i, l) {
     var type = TYPES[b.t] || TYPES.text;
     var dicht = !!S.open[b._k];
-    var kaart = h('div', { class: 'blok-kaart' + (b.t === 'continue' ? ' doorgaan-kaart' : '') + (S.gekozenK === b._k ? ' gekozen' : '') + (dicht ? ' dicht' : '') });
+    var kaart = h('div', { class: 'blok-kaart sleepbaar' + (b.t === 'continue' ? ' doorgaan-kaart' : '') + (S.gekozenK === b._k ? ' gekozen' : '') + (dicht ? ' dicht' : '') });
     var samenv = h('span', { class: 'samenvatting' });
-    var waarsch = h('span');
+    var waarsch = h('span', { class: 'kop-punten' });
     var naamEl = h('span');
-    var kopKnop = h('button', { type: 'button', class: 'type', 'aria-expanded': dicht ? 'false' : 'true', title: dicht ? 'Uitklappen' : 'Inklappen',
-      onclick: function () { S.open[b._k] = !S.open[b._k]; kaart.classList.toggle('dicht'); kopKnop.setAttribute('aria-expanded', S.open[b._k] ? 'false' : 'true'); } },
-      ico(b.t), naamEl);
-    var kop = h('div', { class: 'blok-kop' }, kopKnop, samenv, waarsch,
-      h('span', { class: 'acties' },
-        icoonknop('omhoog', 'Blok omhoog', function () { verplaats(l, i, -1); }, i === 0),
-        icoonknop('omlaag', 'Blok omlaag', function () { verplaats(l, i, 1); }, i === l.blocks.length - 1),
-        icoonknop('kopie', 'Blok dupliceren', function () {
-          var kopie = kloon(b);
-          kopie._k = nieuwId('b');
-          l.blocks.splice(i + 1, 0, kopie);
-          S.gekozenK = kopie._k;
-          gewijzigd(l.id); renderEditor(); renderStructuur();
-        }),
-        S.cursus.lessons.length > 1 ? icoonknop('verplaats', 'Naar een andere module', function () { dialoogVerplaats(l, b); }) : null,
-        icoonknop('weg', 'Blok verwijderen', function () {
-          l.blocks.splice(i, 1);
-          S.laatstWeg = { lesId: l.id, index: i, blok: b };
-          gewijzigd(l.id); renderEditor(); renderStructuur();
-          melding(type.naam + ' verwijderd.', { tekst: 'Ongedaan maken', doe: function () {
-            var w = S.laatstWeg;
-            var doel = S.cursus.lessons.find(function (x) { return x.id === w.lesId; });
-            if (!doel) return;
-            doel.blocks.splice(Math.min(w.index, doel.blocks.length), 0, w.blok);
-            S.gekozenK = w.blok._k;
-            gewijzigd(doel.id); renderEditor(); renderStructuur();
-          } });
-        })));
+    function klap() {
+      S.open[b._k] = !S.open[b._k];
+      kaart.classList.toggle('dicht', !!S.open[b._k]);
+      kopKnop.setAttribute('aria-expanded', S.open[b._k] ? 'false' : 'true');
+      kopKnop.title = S.open[b._k] ? 'Uitklappen' : 'Inklappen';
+      Dicht.bewaar(l);
+      werkBalkBij(l);
+    }
+    var kopKnop = h('button', { type: 'button', class: 'type', 'aria-expanded': dicht ? 'false' : 'true', title: dicht ? 'Uitklappen' : 'Inklappen', onclick: klap },
+      h('span', { class: 'pijl' }, ico('pijl')), ico(b.t), naamEl);
+    samenv.addEventListener('click', klap);
+    var kop = h('div', { class: 'blok-kop' },
+      greep(type.naam, kaart, null, function (van, naar, toets) { verplaatsNaar(l, van, naar, toets); }),
+      kopKnop, samenv, waarsch,
+      h('span', { class: 'acties' }, menuKnop('Blok: meer opties', function () { return blokMenu(b, l); })));
     var body = h('div', { class: 'blok-body' });
     var ctx = {
       body: body,
@@ -1667,6 +1887,142 @@
     kaarten[b._k] = { kaart: kaart, samenv: samenv, waarsch: waarsch, naam: naamEl, blok: b, index: i };
     werkKopBij(b._k);
     return kaart;
+  }
+
+  /* Wat je met een blok kunt doen, in het menu achter de drie puntjes. */
+  function blokMenu(b, l) {
+    var type = TYPES[b.t] || TYPES.text;
+    var i = l.blocks.indexOf(b);
+    var om = (OMZET[b.t] || []).map(function (naar) {
+      return { tekst: TYPES[naar].naam + (b.t === 'imagetext' ? ' (zonder afbeelding)' : ''), ico: naar, doe: function () { zetOm(l, b, naar); } };
+    });
+    return [
+      { tekst: 'Omhoog', ico: 'omhoog', uit: i === 0, doe: function () { verplaatsNaar(l, i, i - 1); } },
+      { tekst: 'Omlaag', ico: 'omlaag', uit: i === l.blocks.length - 1, doe: function () { verplaatsNaar(l, i, i + 1); } },
+      { tekst: 'Dupliceren', ico: 'kopie', doe: function () {
+        var kopie = kloon(b);
+        kopie._k = nieuwId('b');
+        l.blocks.splice(i + 1, 0, kopie);
+        S.gekozenK = kopie._k;
+        gewijzigd(l.id); renderEditor(); renderStructuur();
+      } },
+      S.cursus.lessons.length > 1 ? { tekst: 'Naar een andere module…', ico: 'verplaats', doe: function () { dialoogVerplaats(l, b); } } : null,
+      om.length ? '-' : null,
+      om.length ? { kop: 'Omzetten naar' } : null
+    ].concat(om, [
+      '-',
+      { tekst: 'Verwijderen', ico: 'weg', gevaar: true, doe: function () {
+        var j = l.blocks.indexOf(b);
+        l.blocks.splice(j, 1);
+        S.laatstWeg = { lesId: l.id, index: j, blok: b };
+        gewijzigd(l.id); renderEditor(); renderStructuur();
+        melding(type.naam + ' verwijderd.', { tekst: 'Ongedaan maken', doe: function () {
+          var w = S.laatstWeg;
+          var doel = S.cursus.lessons.find(function (x) { return x.id === w.lesId; });
+          if (!doel) return;
+          doel.blocks.splice(Math.min(w.index, doel.blocks.length), 0, w.blok);
+          S.gekozenK = w.blok._k;
+          gewijzigd(doel.id); renderEditor(); renderStructuur();
+        } });
+      } }
+    ]);
+  }
+
+  /* Blokken met dezelfde soort inhoud zet je in elkaar om, zonder alles
+     opnieuw te typen. */
+  var OMZET = {
+    tabs: ['accordion', 'timeline'], accordion: ['tabs', 'timeline'], timeline: ['tabs', 'accordion'],
+    text: ['note', 'imagetext'], note: ['text'], imagetext: ['text'], list: ['text'], quote: ['text']
+  };
+  function zetOm(l, b, naar) {
+    var n = TYPES[naar].nieuw();
+    if (b.items && n.items && b.t !== 'list') {
+      n.items = b.items.map(function (x) {
+        var y = { title: x.title || (naar !== 'timeline' && x.date) || '', body: x.body || '' };
+        if (naar === 'timeline') y.date = x.date || '';
+        return y;
+      });
+    } else if (b.t === 'list') {
+      var tag = b.ordered ? 'ol' : 'ul';
+      n.body = '<' + tag + '>' + b.items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</' + tag + '>';
+    } else if (b.t === 'quote') {
+      n.body = alsAlinea(b.body);
+    } else {
+      if ('heading' in n) n.heading = b.heading || b.title || '';
+      else if ('title' in n) n.title = b.heading || '';
+      n.body = b.body || '';
+    }
+    n._k = b._k;
+    l.blocks[l.blocks.indexOf(b)] = n;
+    S.gekozenK = n._k;
+    gewijzigd(l.id); renderEditor(); renderStructuur();
+    melding('Omgezet naar ' + TYPES[naar].naam.toLowerCase() + '.', { tekst: 'Ongedaan maken', doe: function () { Geschiedenis.terug(); } });
+  }
+
+  function verplaatsNaar(l, van, naar, toets) {
+    if (naar < 0 || naar >= l.blocks.length || naar === van) return;
+    var b = l.blocks.splice(van, 1)[0];
+    l.blocks.splice(naar, 0, b);
+    gewijzigd(l.id);
+    renderEditor();
+    renderStructuur();
+    var k = kaarten[b._k];
+    if (!k) return;
+    k.kaart.scrollIntoView({ block: 'nearest' });
+    if (toets) k.kaart.querySelector('.greep').focus();
+  }
+
+  function alleBlokken(l, dicht) {
+    l.blocks.forEach(function (b) { S.open[b._k] = dicht; });
+    Dicht.bewaar(l);
+    var top = $('#editor-baan').scrollTop;
+    renderEditor();
+    $('#editor-baan').scrollTop = dicht ? 0 : top;
+  }
+
+  function werkBalkBij(l) {
+    var balk = $('.blokken-balk');
+    if (!balk) return;
+    var n = l.blocks.filter(function (b) { return S.open[b._k]; }).length;
+    balk.querySelector('.aantal').textContent = l.blocks.length + ' blokken' + (n ? ', ' + n + ' ingeklapt' : '');
+    var knoppen = balk.querySelectorAll('button');
+    knoppen[0].disabled = n === l.blocks.length;
+    knoppen[1].disabled = !n;
+  }
+
+  function dupliceerModule(l) {
+    var kopie = kloon(l);
+    kopie.id = nieuwId('m');
+    kopie.title = (l.title || 'Module') + ' (kopie)';
+    kopie.blocks.forEach(function (b) { b._k = nieuwId('b'); });
+    S.cursus.lessons.splice(S.cursus.lessons.indexOf(l) + 1, 0, kopie);
+    S.vuil['*'] = 1;
+    gewijzigd(kopie.id);
+    kiesModule(kopie.id);
+    melding('Module gedupliceerd.');
+  }
+
+  function dialoogDeadline(l) {
+    dialoog(function (sluit) {
+      return [
+        h('h2', null, 'Afronden vóór'),
+        h('p', null, 'Staat bij de module in de e-learning, zodat studenten weten wanneer hij af moet zijn. Laat het leeg als er geen datum is.'),
+        V.tekst('Datum of moment', l, 'deadline', { hint: 'Bijvoorbeeld 14 september of week 3' }),
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop primair', onclick: sluit }, 'Klaar'))
+      ];
+    }, function () { renderEditor(); });
+  }
+
+  function dialoogVerwijderModule(l) {
+    dialoog(function (sluit) {
+      return [
+        h('h2', null, 'Module verwijderen?'),
+        h('p', null, (l.title || 'Deze module') + ' en de ' + l.blocks.length + (l.blocks.length === 1 ? ' blok' : ' blokken') + ' erin verdwijnen. Je kunt dit daarna nog ongedaan maken.'),
+        h('div', { class: 'voet' },
+          h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'),
+          h('button', { type: 'button', class: 'knop gevaar vast', onclick: function () { sluit(); verwijderModule(l); } }, 'Verwijderen'))
+      ];
+    });
   }
 
   function dialoogVerplaats(l, b) {
@@ -1710,27 +2066,25 @@
     var type = TYPES[x.blok.t] || TYPES.text;
     x.naam.textContent = x.blok.t === 'quiz' ? (x.blok.multi ? 'Meerdere antwoorden' : 'Meerkeuzevraag') : type.naam;
     x.samenv.textContent = type.samenvatting(x.blok);
-    var w = type.waarschuwing ? type.waarschuwing(x.blok) : '';
+    var p = blokPunten(x.blok);
     x.waarsch.innerHTML = '';
-    if (w) x.waarsch.append(h('span', { class: 'waarschuwing', title: w }, ico('let'), w));
+    if (p.fout.length) x.waarsch.append(h('span', { class: 'waarschuwing', title: p.fout.join(' · ') }, ico('let'), h('span', { class: 'kort', text: p.fout[0] })));
+    else if (p.onaf.length && p.onaf[0] !== x.samenv.textContent) x.waarsch.append(h('span', { class: 'onaf-label', title: p.onaf.join(' · ') }, p.onaf[0]));
+    var li = document.querySelector('.blok-item[data-k="' + k + '"]');
+    if (li) {
+      if (!li.classList.contains('rustig')) li.querySelector('.naam').textContent = type.samenvatting(x.blok);
+      werkStipBij(li, x.blok);
+    }
+    planControle();
   }
 
   function kiesBlok(k) {
     if (S.gekozenK === k) return;
     S.gekozenK = k;
     Object.keys(kaarten).forEach(function (key) { kaarten[key].kaart.classList.toggle('gekozen', key === k); });
+    Array.prototype.forEach.call(document.querySelectorAll('.blok-item'), function (li) { li.classList.toggle('gekozen', li.getAttribute('data-k') === k); });
     var x = kaarten[k];
     if (x && vbSpeler && vbSpeler.module() === S.lesId) vbSpeler.naarBlok(x.index);
-  }
-
-  function verplaats(l, i, stap) {
-    var j = i + stap;
-    if (j < 0 || j >= l.blocks.length) return;
-    l.blocks.splice(j, 0, l.blocks.splice(i, 1)[0]);
-    gewijzigd(l.id);
-    renderEditor();
-    var k = kaarten[l.blocks[j]._k];
-    if (k) k.kaart.scrollIntoView({ block: 'nearest' });
   }
 
   function verwijderModule(l) {
@@ -2055,6 +2409,8 @@
     S.gekozenK = null;
     S.paletNa = null;
     S.vbModule = undefined;
+    S.dichtGeladen = {};
+    S.structuurOpen = {};
     S.vuil = {};
     S.verwijderdeLessen = [];
     Bestand.wissel(c);
@@ -2287,6 +2643,170 @@
     });
   }
 
+  /* ================================================================ controleren */
+
+  /* Twee soorten punten per blok: wat niet klopt (fout: een vraag zonder
+     juist antwoord, een kapotte link) en wat nog niet af is (onaf: een leeg
+     tabblad, een vraag zonder uitleg). */
+  function leeg(x) { return !naarTekst(x == null ? '' : String(x)).trim(); }
+  function aantal(n, een, meer) { return n === 1 ? een : n + ' ' + meer; }
+  function onderdelen(items, een, meer) {
+    var uit = [];
+    var zonderTitel = items.filter(function (x) { return leeg(x.title); }).length;
+    var zonderInhoud = items.filter(function (x) { return leeg(x.body); }).length;
+    if (zonderTitel) uit.push(aantal(zonderTitel, een + ' zonder titel', meer + ' zonder titel'));
+    if (zonderInhoud) uit.push(aantal(zonderInhoud, een + ' zonder inhoud', meer + ' zonder inhoud'));
+    return uit;
+  }
+  function zonderUitleg(b) { return leeg(b.feedback) ? ['Nog geen uitleg na een goed antwoord'] : []; }
+  var ONAF = {
+    text: function (b) { return leeg(b.body) ? [b.heading ? 'Kop zonder tekst' : 'Nog leeg'] : []; },
+    list: function (b) { var n = b.items.filter(leeg).length; return n ? [aantal(n, 'Een leeg punt', 'lege punten')] : []; },
+    quote: function (b) { return leeg(b.body) ? ['Nog leeg'] : []; },
+    note: function (b) { return leeg(b.body) ? ['Nog geen tekst'] : []; },
+    imagetext: function (b) { return leeg(b.body) && leeg(b.heading) ? ['Nog geen tekst'] : []; },
+    video: function (b) { return b.bron && leeg(b.title) ? ['Nog geen titel'] : []; },
+    embed: function (b) { return b.bron && leeg(b.title) ? ['Nog geen titel'] : []; },
+    audio: function (b) { return b.url && leeg(b.title) ? ['Nog geen titel'] : []; },
+    links: function (b) {
+      var n = b.items.filter(function (x) { return leeg(x.label) || leeg(x.href); }).length;
+      return n ? [aantal(n, 'Een link zonder tekst of adres', 'links zonder tekst of adres')] : [];
+    },
+    tabs: function (b) { return onderdelen(b.items, 'Tabblad', 'tabbladen'); },
+    accordion: function (b) { return onderdelen(b.items, 'Onderdeel', 'onderdelen'); },
+    timeline: function (b) { return onderdelen(b.items, 'Punt', 'punten'); },
+    cards: function (b) {
+      var n = b.items.filter(function (x) { return leeg(x.front) || leeg(x.back); }).length;
+      return n ? [aantal(n, 'Een kaartje zonder voor- of achterkant', 'kaartjes zonder voor- of achterkant')] : [];
+    },
+    steps: function (b) {
+      var n = b.steps.filter(function (x) { return leeg(x.title); }).length;
+      return n ? [aantal(n, 'Een stap zonder titel', 'stappen zonder titel')] : [];
+    },
+    quiz: function (b) {
+      var n = b.options.filter(function (o) { return leeg(o.text); }).length;
+      /* Uitleg bij elk antwoord is ook goed; dan hoeft er geen algemene bij. */
+      var perAntwoord = b.options.every(function (o) { return leeg(o.text) || !leeg(o.feedback); });
+      return (n ? [aantal(n, 'Een leeg antwoord', 'lege antwoorden')] : []).concat(perAntwoord ? [] : zonderUitleg(b));
+    },
+    match: function (b) {
+      var n = b.pairs.filter(function (p) { return leeg(p.left) !== leeg(p.right); }).length;
+      return (n ? [aantal(n, 'Een half ingevuld paar', 'half ingevulde paren')] : []).concat(zonderUitleg(b));
+    },
+    sort: function (b) {
+      var n = b.items.filter(function (x) { return leeg(x.text); }).length;
+      return n ? [aantal(n, 'Een leeg onderdeel', 'lege onderdelen')] : [];
+    },
+    fill: zonderUitleg,
+    gallery: function (b) {
+      var n = b.items.filter(function (x) { return !x.src; }).length;
+      return n && n < b.items.length ? [aantal(n, 'Een lege plek in de galerij', 'lege plekken in de galerij')] : [];
+    },
+    hotspots: function (b) {
+      var n = b.points.filter(function (p) { return leeg(p.title) && leeg(p.body); }).length;
+      return n ? [aantal(n, 'Een punt zonder uitleg', 'punten zonder uitleg')] : [];
+    },
+    chart: function (b) {
+      var n = b.items.filter(function (x) { return leeg(x.label); }).length;
+      return n ? [aantal(n, 'Een waarde zonder label', 'waarden zonder label')] : [];
+    },
+    scenario: function (b) {
+      var scenes = b.scenes.filter(function (s) { return leeg(s.text); }).length;
+      var reacties = 0;
+      b.scenes.forEach(function (s) { s.choices.forEach(function (c) { if (!leeg(c.text) && leeg(c.reactie)) reacties++; }); });
+      return (scenes ? [aantal(scenes, 'Een scène zonder tekst', 'scènes zonder tekst')] : [])
+        .concat(reacties ? [aantal(reacties, 'Een keuze zonder reactie', 'keuzes zonder reactie')] : []);
+    }
+  };
+  function blokPunten(b) {
+    var type = TYPES[b.t];
+    var fout = type && type.waarschuwing ? type.waarschuwing(b) : '';
+    var onaf = ONAF[b.t] ? ONAF[b.t](b) : [];
+    return { fout: fout ? [fout] : [], onaf: onaf.filter(function (x) { return x !== fout; }) };
+  }
+
+  /* Alle punten van de e-learning, per module, met waar ze staan. */
+  function controlelijst(c) {
+    var lijst = [];
+    if (/^(Naamloze|Nieuwe) e-learning$/.test(c.title || '') || !c.title) lijst.push({ soort: 'onaf', tekst: 'De e-learning heeft nog geen eigen titel' });
+    if (leeg(c.intro)) lijst.push({ soort: 'onaf', tekst: 'Nog geen introductie op de startpagina' });
+    c.lessons.forEach(function (l, li) {
+      if (!l.blocks.length) lijst.push({ soort: 'onaf', lesId: l.id, module: li, tekst: 'De module is nog leeg' });
+      l.blocks.forEach(function (b) {
+        var p = blokPunten(b);
+        var naam = (TYPES[b.t] || TYPES.text).naam;
+        p.fout.forEach(function (t) { lijst.push({ soort: 'fout', lesId: l.id, module: li, k: b._k, blok: naam, tekst: t }); });
+        p.onaf.forEach(function (t) { lijst.push({ soort: 'onaf', lesId: l.id, module: li, k: b._k, blok: naam, tekst: t }); });
+      });
+    });
+    return lijst;
+  }
+
+  var controleTimer = null;
+  function planControle() { clearTimeout(controleTimer); controleTimer = setTimeout(werkControleBij, 300); }
+  function werkControleBij() {
+    var knop = $('#knop-controle');
+    if (!knop || !S.cursus) return;
+    var lijst = controlelijst(S.cursus);
+    var fout = lijst.filter(function (x) { return x.soort === 'fout'; }).length;
+    var teller = $('#controle-teller');
+    teller.textContent = lijst.length ? String(lijst.length) : '';
+    teller.hidden = !lijst.length;
+    teller.className = 'teller' + (fout ? ' fout' : '');
+    knop.querySelector('.ico-let').style.display = lijst.length ? '' : 'none';
+    knop.querySelector('.ico-vink').style.display = lijst.length ? 'none' : '';
+    knop.title = lijst.length
+      ? (fout ? aantal(fout, '1 ding klopt niet', 'dingen kloppen niet') : '') + (fout && lijst.length > fout ? ', ' : '') + (lijst.length > fout ? aantal(lijst.length - fout, '1 ding is nog niet af', 'dingen zijn nog niet af') : '')
+      : 'Alles is af';
+  }
+
+  function dialoogControle() {
+    var c = S.cursus;
+    var lijst = controlelijst(c);
+    var fout = lijst.filter(function (x) { return x.soort === 'fout'; });
+    var onaf = lijst.filter(function (x) { return x.soort === 'onaf'; });
+    dialoog(function (sluit) {
+      function regel(x) {
+        var waar = x.k ? x.blok : x.lesId ? 'Module' : 'Startpagina';
+        var knop = h('button', { type: 'button', class: 'controle-regel', onclick: function () {
+          sluit();
+          if (x.k) gaNaarBlok(x.lesId, x.k);
+          else if (x.lesId) kiesModule(x.lesId);
+          else { Panelen.zet('links', true); if (matchMedia('(max-width: 760px)').matches) zetTab('structuur'); var t = $('#structuur input'); if (t) t.focus(); }
+        } }, h('span', { class: 'stip ' + (x.soort === 'fout' ? 'rood' : 'open') }), h('span', { class: 'waar', text: waar }), h('span', { class: 'wat', text: x.tekst }));
+        return knop;
+      }
+      function groep(titel, uitleg, items) {
+        if (!items.length) return null;
+        var perModule = [];
+        items.forEach(function (x) {
+          var sleutel = x.lesId ? x.module : -1;
+          var g = perModule.find(function (p) { return p.sleutel === sleutel; });
+          if (!g) { g = { sleutel: sleutel, items: [] }; perModule.push(g); }
+          g.items.push(x);
+        });
+        perModule.sort(function (a, b) { return a.sleutel - b.sleutel; });
+        return h('section', { class: 'controle-groep' },
+          h('h3', null, titel), h('p', { class: 'hulp', text: uitleg }),
+          perModule.map(function (g) {
+            var l = g.sleutel >= 0 ? c.lessons[g.sleutel] : null;
+            return h('div', { class: 'controle-module' },
+              h('div', { class: 'controle-module-naam', text: l ? (g.sleutel + 1) + '. ' + (l.title || 'Module ' + (g.sleutel + 1)) : 'De e-learning' }),
+              g.items.map(regel));
+          }));
+      }
+      return [
+        h('h2', null, 'Controleren'),
+        lijst.length
+          ? h('p', null, 'Klik op een punt om erheen te gaan.')
+          : h('div', { class: 'herkend' }, 'Alles is af: geen fouten en niets leeg gelaten.'),
+        groep(aantal(fout.length, '1 ding klopt niet', 'dingen kloppen niet'), 'Hier loopt een student op vast, of er ontbreekt iets wezenlijks.', fout),
+        groep(aantal(onaf.length, '1 ding is nog niet af', 'dingen zijn nog niet af'), 'Lege velden en uitleg die nog ontbreekt.', onaf),
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Sluiten'))
+      ];
+    });
+  }
+
   function controleer(c) {
     var lijst = [];
     c.lessons.forEach(function (l, li) {
@@ -2328,7 +2848,8 @@
 
   function dialoogExport() {
     var c = S.cursus;
-    var problemen = controleer(c);
+    var punten = controlelijst(c);
+    var nFout = punten.filter(function (x) { return x.soort === 'fout'; }).length;
     var extern = c.lessons.some(function (l) { return l.blocks.some(function (b) { return (b.t === 'video' && (b.youtube || b.vimeo)) || b.t === 'embed'; }); });
     dialoog(function (sluit) {
       function knop(soort, titel, uitleg) {
@@ -2337,7 +2858,9 @@
       return [
         h('h2', null, 'Exporteren'),
         h('p', null, 'Kies hoe je ' + (c.title || 'de e-learning') + ' wilt gebruiken.'),
-        problemen.length ? h('div', { class: 'fout' }, h('strong', null, 'Nog niet alles is af:'), h('ul', { style: 'margin:6px 0 0;padding-left:18px' }, problemen.slice(0, 6).map(function (p) { return h('li', null, p); })), problemen.length > 6 ? h('div', null, 'en nog ' + (problemen.length - 6) + ' andere.') : null) : null,
+        punten.length ? h('div', { class: nFout ? 'fout' : 'voortgang', style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap' },
+          h('span', { style: 'flex:1 1 220px' }, nFout ? aantal(nFout, '1 ding klopt nog niet', 'dingen kloppen nog niet') + (punten.length > nFout ? ', en ' + aantal(punten.length - nFout, '1 ding is nog niet af', 'dingen zijn nog niet af') : '') + '.' : aantal(punten.length, '1 ding is nog niet af.', 'dingen zijn nog niet af.')),
+          h('button', { type: 'button', class: 'knop klein', onclick: function () { sluit(); dialoogControle(); } }, 'Bekijken')) : null,
         h('div', { class: 'keuzelijst' },
           knop('html', 'Webpagina (.html)', 'Eén bestand met alles erin. Zet het op GitHub Pages of je eigen site, of open het direct in de browser. De voortgang blijft in de browser van de student.'),
           knop('scorm', 'SCORM-pakket (.zip)', 'Voor Brightspace, Canvas, Moodle en andere leeromgevingen (SCORM 1.2). Het LMS houdt de voortgang, voltooiing en score bij.'),
@@ -2886,6 +3409,7 @@
     renderStructuur();
     renderEditor();
     tekenVoorbeeld();
+    werkControleBij();
   }
 
   function koppel() {
@@ -2896,6 +3420,7 @@
       else if (w !== S.cursus.id) openCursus(w);
     });
     $('#knop-export').addEventListener('click', dialoogExport);
+    $('#knop-controle').addEventListener('click', dialoogControle);
     $('#knop-terug').addEventListener('click', function () { Geschiedenis.terug(); });
     $('#knop-vooruit').addEventListener('click', function () { Geschiedenis.vooruit(); });
     $('#knop-opslaan').addEventListener('click', function () { Bestand.opslaan(); });
