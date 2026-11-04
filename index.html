@@ -439,16 +439,22 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .keuzelijst button:hover { border-color: var(--accent); background: var(--accent-zacht); }
 .keuzelijst strong { font-size: 14px; }
 .keuzelijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
-.sjabloonlijst { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.sjabloonlijst button { text-align: left; display: grid; gap: 5px; align-content: start; padding: 12px 14px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--paneel); min-width: 0; }
-.sjabloonlijst button:hover { border-color: var(--accent); }
-.sjabloonlijst button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-zacht); box-shadow: inset 0 0 0 1px var(--accent); }
-.sjabloon-naam { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.sjabloon-naam strong { font-size: 14px; }
-.sjabloon-naam em { font-style: normal; font-size: 11.5px; color: var(--tekst-3); }
-.sjabloonlijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
-.sjabloon-blokken { font-size: 11px; color: var(--tekst-3); line-height: 1.45; }
-@media (max-width: 560px) { .sjabloonlijst { grid-template-columns: minmax(0, 1fr); } }
+.sjabloonlijst { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.sjabloon-kaart { text-align: left; display: grid; gap: 6px; align-content: start; padding: 12px 14px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--paneel); min-width: 0; color: var(--tekst); }
+.sjabloon-kaart:hover, .sjabloon-kaart:focus-visible { border-color: var(--accent); background: var(--accent-zacht); }
+.sjabloon-naam { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sjabloon-naam strong { font-size: 14px; line-height: 1.3; }
+.sjabloon-naam em { font-style: normal; font-size: 11.5px; color: var(--tekst-3); white-space: nowrap; }
+.sj-regel { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
+.sj-regel b { font-weight: 600; color: var(--tekst); }
+.sjabloon-opbouw { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.sj-stap { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px 2px 2px; border: 1px solid var(--lijn); border-radius: 7px; background: var(--vlak); }
+.sj-stap b { display: grid; place-items: center; min-width: 16px; height: 16px; border-radius: 5px; background: var(--accent); color: var(--op-accent); font-size: 10px; font-weight: 700; margin-right: 2px; }
+.sj-blok { display: inline-grid; place-items: center; color: var(--tekst-2); }
+.sj-blok svg { width: 14px; height: 14px; }
+.sjabloon-start { display: grid; gap: 10px; padding: 16px; margin-bottom: 14px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--paneel); }
+.sjabloon-start h2 { font-size: 16px; margin: 0; }
+.sjabloon-start p { margin: 0; font-size: 13px; color: var(--tekst-2); line-height: 1.5; }
 
 /* klikplaat en tabel in de editor */
 .plaats-vlak { position: relative; border-radius: 8px; overflow: hidden; cursor: crosshair; border: 1px solid var(--lijn); background: var(--vlak); }
@@ -5167,8 +5173,9 @@ function Speler(root, cursus, opts) {
 
   var SJABLONEN = [
     {
-      id: 'uitleg', naam: 'Uitleg met video', duur: 'ongeveer 20 minuten',
-      uitleg: 'Inleiding en leerdoelen, een kernbegrip met video, een praktijkvoorbeeld met beeld, twee kennisvragen en een samenvatting.',
+      id: 'uitleg', naam: 'Nieuwe stof uitleggen', duur: '20 min',
+      geschikt: 'Een nieuw onderwerp, theorie of model introduceren.',
+      student: 'Leest de uitleg, kijkt een video, ziet een praktijkvoorbeeld en past het begrip toe in twee vragen.',
       blokken: [
         sjTekst('Waar gaat deze module over?', 'Vertel in twee of drie zinnen wat de student gaat leren en waarom dat ertoe doet voor de opleiding of het werkveld.'),
         { t: 'list', ordered: false, items: [SJ + 'Na deze module kun je … (begin met een werkwoord: uitleggen, toepassen, vergelijken)', SJ + 'Tweede leerdoel', SJ + 'Derde leerdoel (mag weg)'] },
@@ -5185,8 +5192,9 @@ function Speler(root, cursus, opts) {
       ]
     },
     {
-      id: 'casus', naam: 'Casus en toepassen', duur: 'ongeveer 30 minuten',
-      uitleg: 'Een praktijkcasus met beeld en achtergrond, een analyse met een vraag, een gesprek met keuzes en een reflectieopdracht.',
+      id: 'casus', naam: 'Een praktijkcasus analyseren', duur: '30 min',
+      geschikt: 'Theorie toepassen op een echte situatie, zoals een bedrijf of organisatie.',
+      student: 'Verkent de casus, kiest de beste verklaring, voert een gesprek met keuzes en reflecteert.',
       blokken: [
         sjTekst('De casus', 'Stel de casus voor: welke organisatie, welk probleem en welke rol heeft de student?'),
         sjBeeld('Foto of schema bij de casus. Kies hierboven een afbeelding.'),
@@ -5217,8 +5225,9 @@ function Speler(root, cursus, opts) {
       ]
     },
     {
-      id: 'begrippen', naam: 'Begrippen leren', duur: 'ongeveer 15 minuten',
-      uitleg: 'Begrippenkaartjes om te omdraaien, daarna oefenen met een koppelvraag, een invulvraag en een sorteeropdracht.',
+      id: 'begrippen', naam: 'Begrippen inoefenen', duur: '15 min',
+      geschikt: 'Vakbegrippen leren en uit elkaar houden, als voorbereiding of herhaling.',
+      student: 'Draait begrippenkaartjes om en oefent met koppelen, invullen en sorteren.',
       blokken: [
         sjTekst('De begrippen van deze module', 'Vertel waarom deze begrippen belangrijk zijn en waar de student ze tegenkomt.'),
         { t: 'cards', items: [
@@ -5243,8 +5252,9 @@ function Speler(root, cursus, opts) {
       ]
     },
     {
-      id: 'vaardigheid', naam: 'Vaardigheid oefenen', duur: 'ongeveer 25 minuten',
-      uitleg: 'Een demonstratievideo, een stappenplan, een voorbeeld van goed werk, een kennisvraag en een oefenopdracht met werkblad.',
+      id: 'vaardigheid', naam: 'Een vaardigheid aanleren', duur: '25 min',
+      geschikt: 'Een werkwijze of handeling: voordoen, de stappen uitleggen en zelf oefenen.',
+      student: 'Kijkt een demonstratie, volgt een stappenplan, leert de valkuil kennen en oefent zelf.',
       blokken: [
         sjTekst('Wat ga je leren?', 'Beschrijf de vaardigheid en wanneer de student die nodig heeft.'),
         sjVideo('Demonstratie: iemand doet het voor. Plak hierboven de link.'),
@@ -5264,8 +5274,9 @@ function Speler(root, cursus, opts) {
       ]
     },
     {
-      id: 'kort', naam: 'Korte module', duur: 'ongeveer 10 minuten',
-      uitleg: 'Snel en compact: een korte uitleg, een video, twee vragen en een tip om mee te nemen.',
+      id: 'kort', naam: 'Korte opfrisser', duur: '10 min',
+      geschikt: 'Eén ding snel uitleggen of herhalen, bijvoorbeeld vóór een les of werkcollege.',
+      student: 'Kijkt een video, leest een korte verdieping en beantwoordt twee vragen.',
       blokken: [
         sjTekst('In het kort', 'Wat leert de student in deze korte module? Eén alinea is genoeg.'),
         sjVideo('Titel van de video. Plak hierboven de link.'),
@@ -5277,8 +5288,9 @@ function Speler(root, cursus, opts) {
       ]
     },
     {
-      id: 'debat', naam: 'Debat en perspectieven', duur: 'ongeveer 25 minuten',
-      uitleg: 'Een stelling, drie perspectieven in tabbladen, een vergelijkende tabel, een vraag met meer goede antwoorden en een stemming.',
+      id: 'debat', naam: 'Standpunt vormen in een discussie', duur: '25 min',
+      geschikt: 'Een vraagstuk met meerdere kanten, zoals ethiek, beleid of duurzaamheid.',
+      student: 'Vergelijkt perspectieven, herkent argumenten, stemt mee en neemt zelf een standpunt in.',
       blokken: [
         sjTekst('Waar gaat de discussie over?', 'Schets de kwestie en waarom mensen er verschillend over denken.'),
         { t: 'quote', body: SJ + 'Een prikkelende stelling die het debat op scherp zet.' },
@@ -5310,58 +5322,49 @@ function Speler(root, cursus, opts) {
     return !l.blocks.length || (l.blocks.length === 1 && l.blocks[0].t === 'text' && leeg(l.blocks[0].body) && leeg(l.blocks[0].heading));
   }
 
-  function zetSjabloon(sj, alsNieuw) {
-    var blokken = blokkenUit(kloon(sj.blokken));
+  /* Zet een sjabloon op een plek in de huidige module; een lege module vult
+     het helemaal. naIndex zoals bij voegBlokIn: -1 bovenaan, 'onder' onderaan. */
+  function zetSjabloon(sj, naIndex) {
     var l = les();
-    if (alsNieuw || !l) {
-      l = { id: nieuwId('m'), title: sj.naam, deadline: '', blocks: blokken };
-      S.cursus.lessons.push(l);
-      gewijzigd(l.id);
-      kiesModule(l.id);
-    } else {
-      l.blocks = moduleIsLeeg(l) ? blokken : l.blocks.concat(blokken);
-      S.gekozenK = blokken[0]._k;
-      gewijzigd(l.id);
-      renderEditor();
-      renderStructuur();
-      var k = kaarten[blokken[0]._k];
-      if (k) k.kaart.scrollIntoView({ block: 'start' });
+    var blokken = blokkenUit(kloon(sj.blokken));
+    if (moduleIsLeeg(l)) l.blocks = blokken;
+    else {
+      var plek = naIndex === 'onder' ? l.blocks.length : naIndex + 1;
+      l.blocks.splice.apply(l.blocks, [plek, 0].concat(blokken));
     }
-    melding('Sjabloon "' + sj.naam + '" staat klaar. Vervang de tekst met ✎ door je eigen inhoud.');
+    S.paletNa = null;
+    S.gekozenK = blokken[0]._k;
+    gewijzigd(l.id);
+    renderEditor();
+    renderStructuur();
+    var k = kaarten[blokken[0]._k];
+    if (k) k.kaart.scrollIntoView({ block: 'start' });
+    melding('"' + sj.naam + '" staat klaar. Vervang de tekst met ✎ door je eigen inhoud, video\'s en afbeeldingen.');
   }
 
-  function dialoogSjablonen() {
-    var gekozen = SJABLONEN[0];
-    var l = les();
-    dialoog(function (sluit) {
-      var kaartjes = SJABLONEN.map(function (sj) {
-        var soorten = [];
-        sj.blokken.forEach(function (b) {
-          var naam = b.t === 'quiz' ? (b.multi ? 'Meerdere antwoorden' : 'Kennisvraag') : TYPES[b.t].naam;
-          if (b.t !== 'continue' && soorten.indexOf(naam) < 0) soorten.push(naam);
-        });
-        return h('button', {
-          type: 'button', 'aria-pressed': String(sj === gekozen),
-          onclick: function () {
-            gekozen = sj;
-            kaartjes.forEach(function (k, i) { k.setAttribute('aria-pressed', String(SJABLONEN[i] === sj)); });
-          }
-        },
-          h('span', { class: 'sjabloon-naam' }, h('strong', { text: sj.naam }), h('em', { text: sj.duur })),
-          h('small', { text: sj.uitleg }),
-          h('span', { class: 'sjabloon-blokken', text: soorten.join(' · ') }));
-      });
-      var leegNu = l && moduleIsLeeg(l);
-      return [
-        h('h2', null, 'Standaard sjablonen'),
-        h('p', null, 'Kies een opbouw. De blokken staan klaar met aanwijzingen (✎); daarna voeg je zelf de tekst, video\'s en afbeeldingen toe.'),
-        h('div', { class: 'sjabloonlijst', role: 'group', 'aria-label': 'Sjablonen' }, kaartjes),
-        h('div', { class: 'voet' },
-          h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'),
-          l && !leegNu ? h('button', { type: 'button', class: 'knop', onclick: function () { sluit(); zetSjabloon(gekozen, false); } }, 'Onderaan deze module') : null,
-          h('button', { type: 'button', class: 'knop primair', onclick: function () { sluit(); zetSjabloon(gekozen, !leegNu); } }, leegNu ? 'In deze lege module zetten' : 'Als nieuwe module'))
-      ];
-    });
+  function sjBlokNaam(b) { return b.t === 'quiz' ? (b.multi ? 'Meerdere antwoorden' : 'Kennisvraag') : TYPES[b.t].naam; }
+
+  /* De opbouw in stappen, zoals de student ze ziet: elke doorgaan-knop begint een nieuwe stap. */
+  function sjabloonOpbouw(sj) {
+    var stappen = [[]];
+    sj.blokken.forEach(function (b) { if (b.t === 'continue') stappen.push([]); else stappen[stappen.length - 1].push(b); });
+    var beschrijving = stappen.map(function (st, i) { return 'stap ' + (i + 1) + ': ' + st.map(sjBlokNaam).join(', '); }).join('; ');
+    return h('span', { class: 'sjabloon-opbouw', role: 'img', 'aria-label': 'Opbouw in ' + stappen.length + ' stappen. ' + beschrijving },
+      stappen.map(function (st, i) {
+        return h('span', { class: 'sj-stap', title: 'Stap ' + (i + 1) + ': ' + st.map(sjBlokNaam).join(', ') },
+          h('b', { text: String(i + 1) }),
+          st.map(function (b) { return h('span', { class: 'sj-blok', title: sjBlokNaam(b) }, ico(b.t)); }));
+      }));
+  }
+
+  function sjabloonKaarten(naIndex) {
+    return h('div', { class: 'sjabloonlijst' }, SJABLONEN.map(function (sj) {
+      return h('button', { type: 'button', class: 'sjabloon-kaart', onclick: function () { zetSjabloon(sj, naIndex); } },
+        h('span', { class: 'sjabloon-naam' }, h('strong', { text: sj.naam }), h('em', { text: sj.duur })),
+        h('span', { class: 'sj-regel' }, h('b', { text: 'Geschikt voor: ' }), sj.geschikt),
+        h('span', { class: 'sj-regel' }, h('b', { text: 'De student: ' }), sj.student),
+        sjabloonOpbouw(sj));
+    }));
   }
 
   /* ================================================================ afbeeldingen */
@@ -5408,7 +5411,7 @@ function Speler(root, cursus, opts) {
     open: {},          /* blokken die dichtgeklapt zijn: _k -> true */
     dichtGeladen: {},  /* modules waarvan de bewaarde dichtgeklapte blokken al terug zijn */
     structuurOpen: {}, /* modules waarvan de blokken in de structuur zichtbaar zijn: id -> true/false */
-    paletAlles: ls('bouwer:palet') === 'alles', /* blokkenkiezer: alle soorten of alleen de standaard */
+    paletSoort: ls('bouwer:palet') === 'alles' ? 'alles' : 'standaard', /* blokkenkiezer: standaard, alles of sjablonen */
     paletNa: null,     /* index waarna het palet open staat, of -1 voor onderaan */
     vuil: {},
     verwijderdeLessen: [],
@@ -5564,7 +5567,6 @@ function Speler(root, cursus, opts) {
       lijst,
       h('div', { class: 'knoprij' },
         h('button', { type: 'button', class: 'knop klein', onclick: nieuweModule }, ico('plus'), 'Module'),
-        h('button', { type: 'button', class: 'knop klein', onclick: dialoogSjablonen }, ico('steps'), 'Uit sjabloon'),
         S.sample ? h('button', { type: 'button', class: 'knop klein claude', onclick: dialoogModule }, ico('ster'), 'Module met Claude') : null));
 
     var beheer = h('div', { class: 'sectie' },
@@ -5835,9 +5837,8 @@ function Speler(root, cursus, opts) {
     if (!l) {
       ed.append(h('div', { class: 'blok-kaart', style: 'padding:24px' },
         h('h2', { style: 'font-size:18px;margin-bottom:8px' }, 'Nog geen modules'),
-        h('p', { style: 'color:var(--tekst-2);margin:0 0 14px' }, 'Een e-learning bestaat uit modules. Begin met je eerste.'),
+        h('p', { style: 'color:var(--tekst-2);margin:0 0 14px' }, 'Een e-learning bestaat uit modules. Begin met je eerste; daarna kies je of je leeg begint of met een sjabloon.'),
         h('div', { class: 'knoprij' }, h('button', { type: 'button', class: 'knop primair', onclick: nieuweModule }, 'Eerste module maken'),
-          h('button', { type: 'button', class: 'knop', onclick: dialoogSjablonen }, ico('steps'), 'Standaard sjablonen'),
           S.sample ? h('button', { type: 'button', class: 'knop claude', onclick: dialoogModule }, ico('ster'), 'Laat Claude een module opzetten') : null)));
       return;
     }
@@ -5874,6 +5875,13 @@ function Speler(root, cursus, opts) {
         h('button', { type: 'button', class: 'knop-tekst', disabled: !aantalDicht, onclick: function () { alleBlokken(l, false); } }, ico('uitklap'), 'Alles uitklappen')));
     }
 
+    if (moduleIsLeeg(l) && S.paletNa === null) {
+      ed.append(h('section', { class: 'sjabloon-start', 'aria-label': 'Begin met een sjabloon' },
+        h('h2', null, 'Hoe bouw je deze module op?'),
+        h('p', null, 'Kies een sjabloon: de blokken staan dan klaar in een afwisselende volgorde, met aanwijzingen (✎) die jij vervangt door je eigen tekst, video\'s en afbeeldingen. Of begin leeg in het tekstblok hieronder.'),
+        sjabloonKaarten(-1)));
+    }
+
     var blokken = h('div', { class: 'blokken', id: 'blokken' });
     blokken.append(invoegPlek(-1));
     l.blocks.forEach(function (b, i) {
@@ -5885,9 +5893,9 @@ function Speler(root, cursus, opts) {
 
     var onder = h('div', { class: 'toevoegen-onder' },
       S.paletNa === 'onder' ? palet('onder') : h('div', { class: 'knoprij' },
-        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', false); } }, ico('plus'), 'Standaard blok'),
-        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', true); } }, 'Alle blokken'),
-        h('button', { type: 'button', class: 'knop', onclick: dialoogSjablonen }, ico('steps'), 'Standaard sjablonen')));
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', 'standaard'); } }, ico('plus'), 'Standaard blok'),
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', 'alles'); } }, 'Alle blokken'),
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', 'sjablonen'); } }, ico('steps'), 'Sjabloon')));
     ed.append(onder);
     Dicht.bewaar(l);
   }
@@ -5902,8 +5910,14 @@ function Speler(root, cursus, opts) {
   /* De blokken die je het vaakst nodig hebt; de rest staat onder Alle blokken. */
   var STANDAARD = ['text', 'image', 'video', 'list', 'quiz', 'continue'];
 
-  function openPalet(naIndex, alles) {
-    if (alles !== undefined) { S.paletAlles = alles; ls('bouwer:palet', alles ? 'alles' : null); }
+  /* soort: 'standaard', 'alles' of 'sjablonen'. Zonder soort opent de kiezer
+     met de laatst gekozen blokken; sjablonen kies je steeds bewust. */
+  function openPalet(naIndex, soort) {
+    if (soort === undefined && S.paletSoort === 'sjablonen') soort = ls('bouwer:palet') === 'alles' ? 'alles' : 'standaard';
+    if (soort !== undefined) {
+      S.paletSoort = soort;
+      if (soort !== 'sjablonen') { try { ls('bouwer:palet', soort === 'alles' ? 'alles' : null); } catch (e) { /* geen opslag */ } }
+    }
     S.paletNa = naIndex;
     renderEditor();
     var p = $('.palet');
@@ -5918,17 +5932,23 @@ function Speler(root, cursus, opts) {
       return h('button', { type: 'button', onclick: function () { voegBlokIn(sleutel, naIndex); } },
         ico(sleutel === 'quiz-multi' ? 'quiz' : sleutel), h('strong', null, naam), h('small', null, uitleg));
     }
-    function soort(alles, tekst) {
-      return h('button', { type: 'button', 'aria-pressed': S.paletAlles === alles ? 'true' : 'false', onclick: function () { if (S.paletAlles !== alles) openPalet(naIndex, alles); } }, tekst);
+    function soort(waarde, tekst) {
+      return h('button', { type: 'button', 'aria-pressed': S.paletSoort === waarde ? 'true' : 'false', onclick: function () { if (S.paletSoort !== waarde) openPalet(naIndex, waarde); } }, tekst);
     }
-    var p = h('div', { class: 'palet', role: 'dialog', 'aria-label': 'Kies een blok' },
+    var sjablonen = S.paletSoort === 'sjablonen';
+    var p = h('div', { class: 'palet', role: 'dialog', 'aria-label': sjablonen ? 'Kies een sjabloon' : 'Kies een blok' },
       h('div', { class: 'palet-kop' },
-        h('strong', { style: 'font-family:var(--f-kop)' }, 'Kies een blok'),
-        h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Welke blokken' }, soort(false, 'Standaard'), soort(true, 'Alle blokken')),
+        h('strong', { style: 'font-family:var(--f-kop)' }, sjablonen ? 'Kies een sjabloon' : 'Kies een blok'),
+        h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Wat wil je toevoegen' }, soort('standaard', 'Standaard'), soort('alles', 'Alle blokken'), soort('sjablonen', 'Sjablonen')),
         icoonknop('kruis', 'Sluiten', function () { S.paletNa = null; renderEditor(); })));
-    if (!S.paletAlles) {
+    if (sjablonen) {
+      p.append(h('p', { class: 'hulp', style: 'margin:0', text: 'Een sjabloon zet een complete, afwisselende opbouw klaar: tekst, video, beeld en vragen, met aanwijzingen (✎) die jij vervangt door je eigen inhoud. '
+        + (moduleIsLeeg(les()) ? 'Deze lege module wordt ermee gevuld.' : 'De blokken komen op deze plek in de module.') }), sjabloonKaarten(naIndex));
+      return p;
+    }
+    if (S.paletSoort === 'standaard') {
       p.append(h('div', { class: 'palet-knoppen' }, STANDAARD.map(knop)),
-        h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { openPalet(naIndex, true); } }, 'Meer soorten: tabbladen, kaartjes, scenario, koppelvraag…'));
+        h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { openPalet(naIndex, 'alles'); } }, 'Meer soorten: tabbladen, kaartjes, scenario, koppelvraag…'));
       return p;
     }
     PALET.forEach(function (g) {

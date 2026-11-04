@@ -432,16 +432,22 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .keuzelijst button:hover { border-color: var(--accent); background: var(--accent-zacht); }
 .keuzelijst strong { font-size: 14px; }
 .keuzelijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
-.sjabloonlijst { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.sjabloonlijst button { text-align: left; display: grid; gap: 5px; align-content: start; padding: 12px 14px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--paneel); min-width: 0; }
-.sjabloonlijst button:hover { border-color: var(--accent); }
-.sjabloonlijst button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-zacht); box-shadow: inset 0 0 0 1px var(--accent); }
-.sjabloon-naam { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.sjabloon-naam strong { font-size: 14px; }
-.sjabloon-naam em { font-style: normal; font-size: 11.5px; color: var(--tekst-3); }
-.sjabloonlijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
-.sjabloon-blokken { font-size: 11px; color: var(--tekst-3); line-height: 1.45; }
-@media (max-width: 560px) { .sjabloonlijst { grid-template-columns: minmax(0, 1fr); } }
+.sjabloonlijst { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.sjabloon-kaart { text-align: left; display: grid; gap: 6px; align-content: start; padding: 12px 14px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--paneel); min-width: 0; color: var(--tekst); }
+.sjabloon-kaart:hover, .sjabloon-kaart:focus-visible { border-color: var(--accent); background: var(--accent-zacht); }
+.sjabloon-naam { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sjabloon-naam strong { font-size: 14px; line-height: 1.3; }
+.sjabloon-naam em { font-style: normal; font-size: 11.5px; color: var(--tekst-3); white-space: nowrap; }
+.sj-regel { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
+.sj-regel b { font-weight: 600; color: var(--tekst); }
+.sjabloon-opbouw { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.sj-stap { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px 2px 2px; border: 1px solid var(--lijn); border-radius: 7px; background: var(--vlak); }
+.sj-stap b { display: grid; place-items: center; min-width: 16px; height: 16px; border-radius: 5px; background: var(--accent); color: var(--op-accent); font-size: 10px; font-weight: 700; margin-right: 2px; }
+.sj-blok { display: inline-grid; place-items: center; color: var(--tekst-2); }
+.sj-blok svg { width: 14px; height: 14px; }
+.sjabloon-start { display: grid; gap: 10px; padding: 16px; margin-bottom: 14px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--paneel); }
+.sjabloon-start h2 { font-size: 16px; margin: 0; }
+.sjabloon-start p { margin: 0; font-size: 13px; color: var(--tekst-2); line-height: 1.5; }
 
 /* klikplaat en tabel in de editor */
 .plaats-vlak { position: relative; border-radius: 8px; overflow: hidden; cursor: crosshair; border: 1px solid var(--lijn); background: var(--vlak); }
