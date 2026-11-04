@@ -513,15 +513,45 @@
   /* ================================================================ vormgeving */
 
   /* Designsjablonen voor de speler. Een sjabloon zet de kleurwaarden uit
-     speler.css (--go-…); een eigen accentkleur of lettertype gaat daaroverheen. */
+     speler.css (--go-…), de lettertypen en een paar stijlkeuzes; wat de maker
+     zelf kiest (accentkleur, lettertypen, hoeken, knoppen …) gaat daaroverheen. */
   var LETTERS = {
-    inter: { naam: 'Inter', css: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', google: 'Inter:wght@400;500;600' },
-    roboto: { naam: 'Roboto', css: 'Roboto, "Segoe UI", Arial, sans-serif', google: 'Roboto:wght@400;500;700' },
-    avenir: { naam: 'Avenir Next (anders Roboto)', css: '"Avenir Next", Avenir, Roboto, "Segoe UI", Arial, sans-serif', google: 'Roboto:wght@400;500;700' },
-    avenirSmal: { naam: 'Avenir Next Condensed (anders Roboto Condensed)', css: '"Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", sans-serif', google: 'Roboto+Condensed:wght@600;700', alleenKop: true },
-    atkinson: { naam: 'Atkinson Hyperlegible (extra leesbaar)', css: '"Atkinson Hyperlegible", Verdana, sans-serif', google: 'Atkinson+Hyperlegible:wght@400;700' },
-    serif: { naam: 'Source Serif (boekletter)', css: '"Source Serif 4", Georgia, serif', google: 'Source+Serif+4:opsz,wght@8..60,400;8..60,600' }
+    inter: { naam: 'Inter', soort: 'schreefloos', css: 'Inter, -apple-system, "Segoe UI", Roboto, sans-serif', google: 'Inter:wght@400;500;600;700' },
+    roboto: { naam: 'Roboto', soort: 'schreefloos', css: 'Roboto, "Segoe UI", Arial, sans-serif', google: 'Roboto:wght@400;500;700' },
+    avenir: { naam: 'Avenir Next (anders Roboto)', soort: 'schreefloos', css: '"Avenir Next", Avenir, Roboto, "Segoe UI", Arial, sans-serif', google: 'Roboto:wght@400;500;700' },
+    opensans: { naam: 'Open Sans', soort: 'schreefloos', css: '"Open Sans", "Segoe UI", Arial, sans-serif', google: 'Open+Sans:wght@400;600;700' },
+    lato: { naam: 'Lato', soort: 'schreefloos', css: 'Lato, "Segoe UI", Arial, sans-serif', google: 'Lato:wght@400;700' },
+    sourcesans: { naam: 'Source Sans', soort: 'schreefloos', css: '"Source Sans 3", "Segoe UI", Arial, sans-serif', google: 'Source+Sans+3:wght@400;600;700' },
+    plex: { naam: 'IBM Plex Sans', soort: 'schreefloos', css: '"IBM Plex Sans", "Segoe UI", Arial, sans-serif', google: 'IBM+Plex+Sans:wght@400;500;600;700' },
+    dmsans: { naam: 'DM Sans', soort: 'schreefloos', css: '"DM Sans", "Segoe UI", Arial, sans-serif', google: 'DM+Sans:wght@400;500;600;700' },
+    worksans: { naam: 'Work Sans', soort: 'schreefloos', css: '"Work Sans", "Segoe UI", Arial, sans-serif', google: 'Work+Sans:wght@400;500;600;700' },
+    nunito: { naam: 'Nunito (rond, vriendelijk)', soort: 'schreefloos', css: 'Nunito, "Segoe UI", Arial, sans-serif', google: 'Nunito:wght@400;600;700' },
+    poppins: { naam: 'Poppins', soort: 'schreefloos', css: 'Poppins, "Segoe UI", Arial, sans-serif', google: 'Poppins:wght@400;500;600;700' },
+    montserrat: { naam: 'Montserrat', soort: 'schreefloos', css: 'Montserrat, "Segoe UI", Arial, sans-serif', google: 'Montserrat:wght@400;500;600;700' },
+    atkinson: { naam: 'Atkinson Hyperlegible', soort: 'leesbaar', css: '"Atkinson Hyperlegible", Verdana, sans-serif', google: 'Atkinson+Hyperlegible:wght@400;700' },
+    lexend: { naam: 'Lexend', soort: 'leesbaar', css: 'Lexend, Verdana, sans-serif', google: 'Lexend:wght@400;500;600;700' },
+    serif: { naam: 'Source Serif', soort: 'schreef', css: '"Source Serif 4", Georgia, serif', google: 'Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700' },
+    merriweather: { naam: 'Merriweather', soort: 'schreef', css: 'Merriweather, Georgia, serif', google: 'Merriweather:wght@400;700' },
+    lora: { naam: 'Lora', soort: 'schreef', css: 'Lora, Georgia, serif', google: 'Lora:wght@400;500;600;700' },
+    baskerville: { naam: 'Libre Baskerville', soort: 'schreef', css: '"Libre Baskerville", Georgia, serif', google: 'Libre+Baskerville:wght@400;700' },
+    playfair: { naam: 'Playfair Display', soort: 'kop', alleenKop: true, css: '"Playfair Display", Georgia, serif', google: 'Playfair+Display:wght@500;600;700' },
+    fraunces: { naam: 'Fraunces', soort: 'kop', alleenKop: true, css: 'Fraunces, Georgia, serif', google: 'Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700' },
+    spacegrotesk: { naam: 'Space Grotesk', soort: 'kop', alleenKop: true, css: '"Space Grotesk", "Segoe UI", Arial, sans-serif', google: 'Space+Grotesk:wght@500;600;700' },
+    avenirSmal: { naam: 'Avenir Next Condensed (anders Roboto Condensed)', soort: 'kop', alleenKop: true, css: '"Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", sans-serif', google: 'Roboto+Condensed:wght@600;700' }
   };
+  var LETTERSOORTEN = [['schreefloos', 'Schreefloos'], ['leesbaar', 'Extra leesbaar'], ['schreef', 'Met schreef'], ['kop', 'Alleen voor koppen']];
+
+  /* Stijlkeuzes naast kleur en letter. Leeg betekent: zoals het sjabloon het doet. */
+  var STIJLEN = {
+    hoeken: { label: 'Hoeken', keuzes: [['strak', 'Strak'], ['zacht', 'Zacht'], ['rond', 'Rond']] },
+    knoppen: { label: 'Knoppen', keuzes: [['gevuld', 'Gevuld'], ['omlijnd', 'Omlijnd'], ['pil', 'Pil']] },
+    koppen: { label: 'Koppen', keuzes: [['gewoon', 'Gewoon'], ['lijn', 'Met lijn'], ['kleur', 'In kleur']] },
+    grootte: { label: 'Tekstgrootte', keuzes: [['normaal', 'Normaal'], ['groot', 'Groot'], ['extra', 'Groter']] },
+    breedte: { label: 'Regelbreedte', keuzes: [['smal', 'Smal'], ['normaal', 'Normaal'], ['breed', 'Breed']] },
+    boven: { label: 'Bovenkant startpagina', keuzes: [['effen', 'Effen'], ['verloop', 'Verloop'], ['stippen', 'Stippen'], ['licht', 'Licht'], ['foto', 'Foto']] }
+  };
+  var STIJL_STANDAARD = { hoeken: 'zacht', knoppen: 'gevuld', koppen: 'gewoon', grootte: 'normaal', breedte: 'normaal', boven: 'effen' };
+  var HOEKEN = { strak: [4, 3], zacht: [12, 8], rond: [22, 16] };
 
   var MINOR = {
     bg: '#F7F4F0', kaart: '#FFFFFF', vlak: '#F2EEE9', rand: '#E4DDD6', 'rand-zacht': '#EDE8E3',
@@ -531,13 +561,15 @@
     rood: '#C0392B', 'rood-licht': '#FBEDEA'
   };
 
+  /* hoek: de exacte rondingen van het sjabloon; stijl: welke keuze daar het
+     dichtst bij ligt, of wat het sjabloon anders doet dan de standaard. */
   var THEMAS = {
     minor: { naam: 'Green', uitleg: 'Warm wit met saliegroen', letter: 'inter', kleuren: {} },
     /* Kleuren uit de HAN-huisstijl (blog3.han.nl/huisstijl): HAN-rood #E50056,
        zwart, wit en de grijzen Alabaster, Mercury, Gray, Boulder en Mineshaft.
        Letter: Avenir Next; waar die ontbreekt Roboto, het HAN-alternatief voor digitaal. */
     han: {
-      naam: 'HAN huisstijl', uitleg: 'HAN-rood met zwart en wit', letter: 'avenir', kop: 'avenirSmal', hoek: [6, 4],
+      naam: 'HAN huisstijl', uitleg: 'HAN-rood met zwart en wit', letter: 'avenir', kop: 'avenirSmal', hoek: [6, 4], stijl: { hoeken: 'strak' },
       toelichting: 'Kleuren uit de HAN-huisstijl: HAN-rood (#E50056), zwart, wit en de HAN-grijzen. Lettertype Avenir Next als dat op de computer staat, anders Roboto, het alternatief dat de HAN zelf voor digitaal voorschrijft.',
       kleuren: {
         bg: '#FFFFFF', kaart: '#FFFFFF', vlak: '#F8F8F8', rand: '#E3E3E3', 'rand-zacht': '#EDEDED',
@@ -557,7 +589,7 @@
       }
     },
     contrast: {
-      naam: 'Hoog contrast', uitleg: 'Zwart op wit, extra leesbaar', letter: 'atkinson', kopGewicht: 700, hoek: [8, 6],
+      naam: 'Hoog contrast', uitleg: 'Zwart op wit, extra leesbaar', letter: 'atkinson', kopGewicht: 700, hoek: [8, 6], stijl: { hoeken: 'strak' },
       kleuren: {
         bg: '#FFFFFF', kaart: '#FFFFFF', vlak: '#F2F2F2', rand: '#6B6B6B', 'rand-zacht': '#BDBDBD',
         tekst: '#000000', 'tekst-2': '#3D3D3D', 'tekst-3': '#2B2B2B', gedimd: '#6B6B6B',
@@ -565,16 +597,93 @@
         goed: '#1E6B34', 'goed-donker': '#16502A', 'goed-licht': '#E6F2E9',
         rood: '#A1261B', 'rood-licht': '#FBE9E7', schaduw: 'none'
       }
+    },
+    /* Donker: groen-donker is hier een lichte tint, omdat het als tekstkleur
+       op donkere vlakken dient; accent-hover is de donkere variant achter witte tekst. */
+    donker: {
+      naam: 'Donker', uitleg: 'Antraciet met mintgroen', letter: 'inter', donker: true,
+      kleuren: {
+        bg: '#121417', kaart: '#1B1E22', vlak: '#23272C', rand: '#343A41', 'rand-zacht': '#2A2F35',
+        tekst: '#ECEFF2', 'tekst-2': '#A4ACB6', 'tekst-3': '#C3CAD2', gedimd: '#6E7781',
+        groen: '#2A7F6C', 'groen-donker': '#7FD1BC', 'groen-licht': '#19302B', 'groen-medium': '#24473F',
+        goed: '#2F8A55', 'goed-donker': '#8FD9AE', 'goed-licht': '#17301F',
+        rood: '#F07A6A', 'rood-licht': '#3A1F1C', 'warm-tekst': '#E3C99A', 'warm-licht': '#2A251D',
+        schaduw: 'none'
+      }
+    },
+    aarde: {
+      naam: 'Aarde', uitleg: 'Crème met terracotta', letter: 'sourcesans', kop: 'lora', hoek: [10, 8], stijl: { boven: 'verloop' },
+      kleuren: {
+        bg: '#FAF5EE', kaart: '#FFFFFF', vlak: '#F4ECE2', rand: '#E7DACB', 'rand-zacht': '#EFE5D9',
+        tekst: '#2B1D14', 'tekst-2': '#7D6A5C', 'tekst-3': '#5E4A3C', gedimd: '#B5A393',
+        groen: '#B4532A', 'groen-donker': '#8E3F1F', 'groen-licht': '#FBEEE7', 'groen-medium': '#F1CDBB',
+        goed: '#4F7A3A', 'goed-donker': '#3D5F2D', 'goed-licht': '#EEF5E9'
+      }
+    },
+    oceaan: {
+      naam: 'Oceaan', uitleg: 'Fris wit met petrol', letter: 'worksans', hoek: [14, 10], stijl: { koppen: 'kleur' },
+      kleuren: {
+        bg: '#F3F8F8', kaart: '#FFFFFF', vlak: '#E8F1F1', rand: '#D2E2E2', 'rand-zacht': '#E1ECEC',
+        tekst: '#0F2426', 'tekst-2': '#557173', 'tekst-3': '#3F5B5D', gedimd: '#93AAAB',
+        groen: '#0F6E73', 'groen-donker': '#0B5559', 'groen-licht': '#E6F3F3', 'groen-medium': '#BFE0E1',
+        goed: '#2F7D4A', 'goed-donker': '#24603A', 'goed-licht': '#EAF6EE'
+      }
+    },
+    aubergine: {
+      naam: 'Aubergine', uitleg: 'Lila-grijs met diep paars', letter: 'dmsans', hoek: [12, 8], stijl: { boven: 'verloop' },
+      kleuren: {
+        bg: '#F7F5FA', kaart: '#FFFFFF', vlak: '#EFEBF5', rand: '#DED7EA', 'rand-zacht': '#E9E4F1',
+        tekst: '#1E1528', 'tekst-2': '#6E6380', 'tekst-3': '#54486A', gedimd: '#A79DB8',
+        groen: '#6B3FA0', 'groen-donker': '#53307D', 'groen-licht': '#F1EAF9', 'groen-medium': '#D9C8EE',
+        goed: '#2F7D4A', 'goed-donker': '#24603A', 'goed-licht': '#EAF6EE'
+      }
+    },
+    editorial: {
+      naam: 'Editorial', uitleg: 'Papierwit, zwart en schreefkoppen', letter: 'serif', kop: 'playfair', hoek: [2, 2], stijl: { hoeken: 'strak', koppen: 'lijn' },
+      kleuren: {
+        bg: '#FBF9F4', kaart: '#FFFFFF', vlak: '#F3F0E8', rand: '#DDD7CB', 'rand-zacht': '#E9E4DA',
+        tekst: '#151515', 'tekst-2': '#6A6560', 'tekst-3': '#45413C', gedimd: '#A8A29A',
+        groen: '#1C1C1C', 'groen-donker': '#000000', 'groen-licht': '#F0EDE6', 'groen-medium': '#DAD4C8',
+        goed: '#2F7D4A', 'goed-donker': '#24603A', 'goed-licht': '#EAF6EE', schaduw: 'none'
+      }
+    },
+    speels: {
+      naam: 'Speels', uitleg: 'Zacht geel met koraal, rond', letter: 'nunito', kopGewicht: 700, hoek: [22, 16], stijl: { hoeken: 'rond', knoppen: 'pil', boven: 'stippen' },
+      kleuren: {
+        bg: '#FFF9EE', kaart: '#FFFFFF', vlak: '#FFF1D9', rand: '#F1E1C4', 'rand-zacht': '#F7EBD5',
+        tekst: '#2A2118', 'tekst-2': '#7A6A55', 'tekst-3': '#5C4C38', gedimd: '#B8A68C',
+        groen: '#C73B54', 'groen-donker': '#A42F44', 'groen-licht': '#FDEBEE', 'groen-medium': '#F6C6CF',
+        goed: '#2F7D4A', 'goed-donker': '#24603A', 'goed-licht': '#EAF6EE'
+      }
     }
   };
 
+  /* Een omslagfoto of logo: alleen een echte afbeelding telt. */
+  function ontwerpBeeld(x) {
+    return x && typeof x === 'object' && /^data:image\//.test(x.src) ? { src: x.src, w: Number(x.w) || 0, h: Number(x.h) || 0 } : null;
+  }
+  function ontwerpBeelden(o) { return o ? [o.omslag, o.logo].filter(Boolean) : []; }
+
   function normaliseerOntwerp(d) {
     d = d && typeof d === 'object' ? d : {};
-    return {
+    var o = {
       sjabloon: THEMAS[d.sjabloon] ? d.sjabloon : 'minor',
       accent: /^#[0-9a-f]{6}$/i.test(d.accent) ? d.accent.toLowerCase() : '',
-      letter: LETTERS[d.letter] && !LETTERS[d.letter].alleenKop ? d.letter : ''
+      letter: LETTERS[d.letter] && !LETTERS[d.letter].alleenKop ? d.letter : '',
+      kop: LETTERS[d.kop] ? d.kop : ''
     };
+    Object.keys(STIJLEN).forEach(function (k) {
+      o[k] = STIJLEN[k].keuzes.some(function (x) { return x[0] === d[k]; }) ? d[k] : '';
+    });
+    o.omslag = ontwerpBeeld(d.omslag);
+    o.logo = ontwerpBeeld(d.logo);
+    return o;
+  }
+
+  /* De stijlkeuze die geldt: die van de maker, anders die van het sjabloon. */
+  function ontwerpStijl(d, k) {
+    var t = THEMAS[d.sjabloon] || THEMAS.minor;
+    return d[k] || (t.stijl && t.stijl[k]) || STIJL_STANDAARD[k];
   }
 
   function rgb(hex) { var n = parseInt(hex.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
@@ -595,27 +704,90 @@
     Object.keys(t.kleuren).forEach(function (x) { k[x] = t.kleuren[x]; });
     if (d.accent) {
       k.groen = d.accent;
-      k['groen-donker'] = meng(d.accent, '#000000', 0.22);
-      k['groen-licht'] = meng(d.accent, '#ffffff', 0.9);
-      k['groen-medium'] = meng(d.accent, '#ffffff', 0.72);
+      if (t.donker) {
+        k['groen-donker'] = meng(d.accent, '#ffffff', 0.45);
+        k['groen-licht'] = meng(d.accent, k.kaart, 0.82);
+        k['groen-medium'] = meng(d.accent, k.kaart, 0.6);
+      } else {
+        k['groen-donker'] = meng(d.accent, '#000000', 0.22);
+        k['groen-licht'] = meng(d.accent, '#ffffff', 0.9);
+        k['groen-medium'] = meng(d.accent, '#ffffff', 0.72);
+      }
+    }
+    if (t.donker) {
+      k['accent-tekst'] = k['groen-donker'];
+      k['accent-hover'] = meng(k.groen, '#000000', 0.22);
     }
     return k;
   }
 
+  /* Koppen volgen de tekstletter, tenzij er een eigen koplettertype is gekozen. */
   function ontwerpLetters(d) {
     var t = THEMAS[d.sjabloon] || THEMAS.minor;
     var tekst = d.letter || t.letter;
-    return { tekst: LETTERS[tekst], kop: LETTERS[d.letter || t.kop || t.letter] };
+    return { tekst: LETTERS[tekst], kop: LETTERS[d.kop || d.letter || t.kop || t.letter] };
   }
 
   function ontwerpCss(d) {
     var t = THEMAS[d.sjabloon] || THEMAS.minor;
     var k = ontwerpKleuren(d);
     var l = ontwerpLetters(d);
+    var s = function (x) { return ontwerpStijl(d, x); };
     var regels = Object.keys(k).map(function (x) { return '  --go-' + x + ': ' + k[x] + ';'; });
     regels.push('  --go-font: ' + l.tekst.css + ';', '  --go-font-kop: ' + l.kop.css + ';', '  --go-kop-gewicht: ' + (t.kopGewicht || 600) + ';');
-    if (t.hoek) regels.push('  --r-kaart: ' + t.hoek[0] + 'px;', '  --r-knop: ' + t.hoek[1] + 'px;');
-    return '.cursus {\n' + regels.join('\n') + '\n}';
+    var hoek = d.hoeken ? HOEKEN[d.hoeken] : t.hoek;
+    if (hoek) regels.push('  --r-kaart: ' + hoek[0] + 'px;', '  --r-knop: ' + hoek[1] + 'px;');
+    regels.push('  --lees: ' + { smal: '36rem', normaal: '42rem', breed: '50rem' }[s('breedte')] + ';');
+    /* De speler rekent in rem; zoom vergroot alles in dezelfde verhouding. */
+    if (s('grootte') !== 'normaal') regels.push('  zoom: ' + (s('grootte') === 'groot' ? '1.1' : '1.2') + ';');
+    if (t.donker) regels.push('  color-scheme: dark;');
+    var css = ['.cursus {\n' + regels.join('\n') + '\n}'];
+
+    if (s('knoppen') === 'pil') {
+      css.push('.cursus .knop-klein, .cursus .doorgaan button, .cursus .hero .btn-groot { border-radius: 999px; }');
+    }
+    if (s('knoppen') === 'omlijnd') {
+      css.push(
+        '.cursus .knop-klein:not(.stil), .cursus .doorgaan button:not(:disabled) { background: transparent; color: var(--go-groen-donker); border: 2px solid var(--go-groen); }',
+        '.cursus .knop-klein:not(.stil):hover:not(:disabled), .cursus .doorgaan button:hover:not(:disabled) { background: var(--go-groen-licht); border-color: var(--go-groen); }');
+    }
+    if (s('koppen') === 'lijn') {
+      css.push('.cursus .blok h2::after, .cursus .moduletitel h1::after { content: ""; display: block; width: 2.5rem; height: 3px; margin-top: 0.6rem; border-radius: 2px; background: var(--go-groen); }');
+    }
+    if (s('koppen') === 'kleur') {
+      css.push('.cursus .blok h2, .cursus .blok h3, .cursus .moduletitel h1 { color: var(--go-groen-donker); }');
+    }
+
+    var boven = s('boven');
+    if (boven === 'foto' && !d.omslag) boven = 'effen';
+    if (boven === 'verloop') {
+      css.push('.cursus .hero { background: linear-gradient(135deg, ' + k.groen + ' 0%, ' + meng(k.groen, '#000000', 0.38) + ' 100%); }');
+    }
+    if (boven === 'stippen') {
+      css.push('.cursus .hero { background-color: var(--go-groen); background-image: radial-gradient(rgba(255, 255, 255, 0.17) 1.3px, transparent 1.7px); background-size: 18px 18px; }');
+    }
+    if (boven === 'foto') {
+      var a = rgb(meng(k.groen, '#000000', 0.25));
+      css.push('.cursus .hero { background: linear-gradient(120deg, rgba(' + a.join(', ') + ', 0.9) 0%, rgba(0, 0, 0, 0.45) 100%), url("' + d.omslag.src + '") center / cover no-repeat; }');
+    }
+    if (boven === 'licht') {
+      css.push(
+        '.cursus .hero { background: var(--go-groen-licht); color: var(--go-tekst); }',
+        '.cursus .hero .kicker { color: var(--go-groen-donker); }',
+        '.cursus .hero .sub, .cursus .hero .auteur, .cursus .hero .voortgangsbalk .tekst { color: var(--go-tekst-2); }',
+        '.cursus .hero .auteur .bol { background: var(--go-groen-medium); color: var(--go-groen-donker); }',
+        '.cursus .hero .btn-groot { background: var(--go-groen); color: #fff; }',
+        '.cursus .hero .btn-groot:hover { background: var(--go-accent-hover, var(--go-groen-donker)); }',
+        '.cursus .hero .voortgangsbalk .spoor { background: var(--go-groen-medium); }',
+        '.cursus .hero .voortgangsbalk .vulling { background: var(--go-groen); }');
+    }
+
+    /* Het logo staat op een wit vlakje, zodat elk logo op elke achtergrond leesbaar is. */
+    if (d.logo) {
+      var lh = 44, lw = Math.max(24, Math.min(200, Math.round(lh * (d.logo.w || 1) / (d.logo.h || 1))));
+      css.push('.cursus .hero-inner::before { content: ""; display: block; box-sizing: content-box; width: ' + lw + 'px; max-width: calc(100% - 24px); height: ' + lh + 'px; padding: 8px 12px; margin-bottom: 1.75rem; border-radius: var(--r-knop); background: #fff url("' + d.logo.src + '") center / contain no-repeat content-box border-box; }');
+    }
+    return css.join('\n');
   }
 
   function ontwerpLettersUrl(d) {
@@ -1580,21 +1752,26 @@
     renderRail();
   }
 
-  /* Sjabloon kiezen, en eventueel een eigen accentkleur en lettertype. */
+  /* Sjabloon kiezen, en daarna naar wens kleur, lettertypen en de stijl van
+     hoeken, knoppen, koppen en de startpagina. De fijnere keuzes staan onder
+     "Meer opties", zodat het paneel rustig blijft. */
   function renderVormgeving(c) {
     var d = c.ontwerp;
     var t = THEMAS[d.sjabloon];
     function wijzig() { gewijzigd('*'); werkOntwerpBij(); }
+    function opnieuw() { wijzig(); renderStructuur(); }
 
     var sjablonen = h('div', { class: 'sjablonen', role: 'group', 'aria-label': 'Designsjabloon' }, Object.keys(THEMAS).map(function (k) {
       var kl = ontwerpKleuren({ sjabloon: k });
       return h('button', {
         type: 'button', class: 'sjabloon', 'aria-pressed': String(d.sjabloon === k),
         onclick: function () {
-          if (d.sjabloon === k && !d.accent && !d.letter) return;
-          d.sjabloon = k; d.accent = ''; d.letter = '';
-          wijzig();
-          renderStructuur();
+          /* Een ander sjabloon brengt zijn eigen kleur, letters en stijl mee;
+             tekstgrootte, regelbreedte, omslagfoto en logo blijven staan. */
+          d.sjabloon = k; d.accent = ''; d.letter = ''; d.kop = '';
+          d.hoeken = ''; d.knoppen = ''; d.koppen = '';
+          if (d.boven !== 'foto') d.boven = '';
+          opnieuw();
         }
       },
         h('span', { class: 'staal', 'aria-hidden': 'true', style: 'background:' + kl.bg + ';border-color:' + kl.rand },
@@ -1618,12 +1795,81 @@
     kleur.addEventListener('change', function () { renderStructuur(); });
     toonKleur();
 
-    var letterId = veldId();
-    var letter = h('select', { id: letterId },
-      h('option', { value: '' }, 'Van het sjabloon: ' + LETTERS[t.letter].naam),
-      Object.keys(LETTERS).filter(function (k) { return !LETTERS[k].alleenKop; }).map(function (k) { return h('option', { value: k }, LETTERS[k].naam); }));
-    letter.value = d.letter;
-    letter.addEventListener('change', function () { d.letter = letter.value; wijzig(); });
+    /* Een proefregel in de gekozen letters; het document laadt ze al voor het voorbeeld. */
+    var proefKop = h('strong'), proefTekst = h('span', { text: 'En zo leest de lopende tekst van je e-learning.' });
+    var proef = h('div', { class: 'letterproef', 'aria-hidden': 'true' }, proefKop, proefTekst);
+    function werkProef() {
+      var l = ontwerpLetters(d);
+      proefKop.textContent = 'Zo zien de koppen eruit';
+      proefKop.style.fontFamily = l.kop.css;
+      proefKop.style.fontWeight = t.kopGewicht || 600;
+      proefTekst.style.fontFamily = l.tekst.css;
+    }
+    werkProef();
+
+    function letterKeuze(label, key) {
+      var id = veldId();
+      var standaard = key === 'letter' ? 'Van het sjabloon: ' + LETTERS[t.letter].naam
+        : (d.letter ? 'Zelfde als de tekst' : 'Van het sjabloon: ' + LETTERS[t.kop || t.letter].naam);
+      var sel = h('select', { id: id },
+        h('option', { value: '' }, standaard),
+        LETTERSOORTEN.filter(function (s) { return key === 'kop' || s[0] !== 'kop'; }).map(function (s) {
+          return h('optgroup', { label: s[1] }, Object.keys(LETTERS).filter(function (x) { return LETTERS[x].soort === s[0]; }).map(function (x) {
+            return h('option', { value: x }, LETTERS[x].naam);
+          }));
+        }));
+      sel.value = d[key];
+      sel.addEventListener('change', function () {
+        d[key] = sel.value;
+        wijzig();
+        werkProef();
+        /* De standaardregel van het koplettertype hangt af van de tekstletter. */
+        if (key === 'letter') renderStructuur();
+      });
+      return h('div', { class: 'veld' }, h('label', { for: id, text: label }), sel);
+    }
+
+    function stijlRij(k, uitleg) {
+      var actief = ontwerpStijl(d, k);
+      return h('div', { class: 'veld' },
+        h('span', { class: 'veldlabel', text: STIJLEN[k].label }),
+        h('span', { class: 'segment-keuze vorm-seg', role: 'group', 'aria-label': STIJLEN[k].label }, STIJLEN[k].keuzes.map(function (x) {
+          return h('button', { type: 'button', 'aria-pressed': String(actief === x[0]), onclick: function () { d[k] = x[0]; opnieuw(); } }, x[1]);
+        })),
+        uitleg || null);
+    }
+
+    /* Omslagfoto en logo gebruiken dezelfde afbeeldingskiezer als de blokken. */
+    function beeldKeuze(key) {
+      var obj = d[key] || {};
+      return V.beeld(obj, { opnieuw: function () { d[key] = ontwerpBeeld(obj); opnieuw(); } });
+    }
+
+    var aangepast = d.accent || d.letter || d.kop || Object.keys(STIJLEN).some(function (k) { return d[k]; });
+    var meer = h('details', { class: 'vorm-meer' },
+      h('summary', { text: 'Meer opties' }),
+      h('div', { class: 'velden' },
+        stijlRij('hoeken'),
+        stijlRij('knoppen'),
+        stijlRij('koppen'),
+        stijlRij('grootte'),
+        stijlRij('breedte'),
+        stijlRij('boven', ontwerpStijl(d, 'boven') === 'foto' ? h('div', { class: 'velden', style: 'margin-top:8px' },
+          beeldKeuze('omslag'),
+          h('div', { class: 'hulp', text: 'De foto komt achter de titel, met een laag in je accentkleur zodat de tekst leesbaar blijft.' })) : null),
+        h('div', { class: 'veld' }, h('span', { class: 'veldlabel', text: 'Logo' }), beeldKeuze('logo'),
+          h('div', { class: 'hulp', text: 'Staat op een wit vlakje boven de titel van de startpagina. Een PNG met doorzichtige achtergrond werkt het mooist.' })),
+        aangepast ? h('div', null, h('button', {
+          type: 'button', class: 'knop klein', onclick: function () {
+            d.accent = ''; d.letter = ''; d.kop = '';
+            Object.keys(STIJLEN).forEach(function (k) { d[k] = ''; });
+            opnieuw();
+          }
+        }, 'Alles terug naar het sjabloon')) : null));
+    meer.open = ls('bouwer:vormMeer') === '1';
+    meer.addEventListener('toggle', function () {
+      try { ls('bouwer:vormMeer', meer.open ? '1' : '0'); } catch (e) { /* geen opslag: dan onthouden we het niet */ }
+    });
 
     return h('div', { class: 'sectie' },
       h('div', { class: 'sectie-kop' }, h('h2', null, 'Vormgeving')),
@@ -1633,9 +1879,12 @@
         h('div', { class: 'veld' },
           h('label', { for: kleurId, text: 'Accentkleur' }),
           h('div', { class: 'kleurrij' }, kleur, kleurTekst,
-            d.accent ? h('button', { type: 'button', class: 'knop klein', onclick: function () { d.accent = ''; wijzig(); renderStructuur(); } }, 'Sjabloonkleur') : null),
+            d.accent ? h('button', { type: 'button', class: 'knop klein', onclick: function () { d.accent = ''; opnieuw(); } }, 'Sjabloonkleur') : null),
           kleurLet),
-        h('div', { class: 'veld' }, h('label', { for: letterId, text: 'Lettertype' }), letter)));
+        letterKeuze('Lettertype tekst', 'letter'),
+        letterKeuze('Lettertype koppen', 'kop'),
+        proef,
+        meer));
   }
 
   /* De blokken van een module in de structuur: klikken springt erheen,
@@ -2255,11 +2504,11 @@
             snap.docs.forEach(function (d) { var x = d.data(); beelden[x.key] = x.data; Opslag.beelden[id + ':' + x.key] = 1; });
             var c = { id: m.id, title: m.title, subtitle: m.subtitle, author: m.author, intro: m.intro, kicker: m.kicker, ontwerp: m.ontwerp, updatedAt: m.updatedAt, lessons: [] };
             lessen.forEach(function (d) { if (d.exists) c.lessons.push(d.data().les); });
+            function terug(x) { if (/^beeld:/.test(x.src)) x.src = beelden[x.src.slice(6)] || ''; }
             c.lessons.forEach(function (l) {
-              (l.blocks || []).forEach(function (b) {
-                beeldObjecten(b).forEach(function (x) { if (/^beeld:/.test(x.src)) x.src = beelden[x.src.slice(6)] || ''; });
-              });
+              (l.blocks || []).forEach(function (b) { beeldObjecten(b).forEach(terug); });
             });
+            ontwerpBeelden(c.ontwerp).forEach(terug);
             return c;
           });
         });
@@ -2269,16 +2518,17 @@
     bewaar: function (c, vuil, weg) {
       var kaal = zonderSleutels(c);
       var beelden = [];
+      /* Afbeeldingen gaan als losse documenten, zodat de rest klein blijft. */
+      function apart(x) {
+        if (!/^data:/.test(x.src)) return;
+        var key = hash(x.src);
+        beelden.push([key, x.src]);
+        x.src = 'beeld:' + key;
+      }
       kaal.lessons.forEach(function (l) {
-        l.blocks.forEach(function (b) {
-          beeldObjecten(b).forEach(function (x) {
-            if (!/^data:/.test(x.src)) return;
-            var key = hash(x.src);
-            beelden.push([key, x.src]);
-            x.src = 'beeld:' + key;
-          });
-        });
+        l.blocks.forEach(function (b) { beeldObjecten(b).forEach(apart); });
       });
+      ontwerpBeelden(kaal.ontwerp).forEach(apart);
       var browserGelukt = Opslag.bewaarBrowser(zonderSleutels(c));
       if (Opslag.modus !== 'account') return Promise.resolve(browserGelukt ? 'browser' : 'fout');
 
@@ -2503,7 +2753,9 @@
     /* "<" en de twee Unicode-regeleinden als escape, zodat de gegevens het
        script-element nooit kunnen afsluiten of breken. */
     var bs = String.fromCharCode(92);
-    var data = JSON.stringify(c).split('<').join(bs + 'u003c')
+    /* Omslagfoto en logo staan al in de stijl; de speler heeft ze niet nodig. */
+    var kort = Object.assign({}, c, { ontwerp: Object.assign({}, ontwerp, { omslag: null, logo: null }) });
+    var data = JSON.stringify(kort).split('<').join(bs + 'u003c')
       .split(String.fromCharCode(0x2028)).join(bs + 'u2028')
       .split(String.fromCharCode(0x2029)).join(bs + 'u2029');
     return '<!doctype html>\n<html lang="nl">\n<head>\n<meta charset="utf-8">\n'

@@ -247,6 +247,17 @@ input:focus, select:focus, textarea:focus, .rijk:focus { outline: none; border-c
 .staal i { border-radius: 3px; }
 .staal i:first-child { flex: 3; }
 .staal i:last-child { flex: 1; }
+.letterproef { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--paneel); }
+.letterproef strong { font-size: 16px; line-height: 1.25; }
+.letterproef span { font-size: 13px; line-height: 1.45; color: var(--tekst-2); }
+.vorm-meer { border-top: 1px solid var(--lijn); padding-top: 10px; }
+.vorm-meer > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--tekst-2); padding: 2px 0; }
+.vorm-meer > summary:hover { color: var(--accent-sterk); }
+.vorm-meer[open] > summary { margin-bottom: 10px; }
+/* Knoppen die niet op één regel passen, lopen door naar een tweede rij; de
+   tussenruimte van 1px laat de lijnkleur zien als scheiding. */
+.vorm-seg { display: flex; flex-wrap: wrap; gap: 1px; width: 100%; box-sizing: border-box; background: var(--lijn); }
+.vorm-seg button { flex: 1 1 64px; padding: 6px 4px; white-space: nowrap; }
 .kleurrij { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .kleurrij input[type="color"] { width: 40px; height: 30px; padding: 2px; border: 1px solid var(--lijn); border-radius: 7px; background: var(--paneel); cursor: pointer; }
 

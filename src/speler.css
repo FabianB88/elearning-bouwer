@@ -124,7 +124,7 @@
   align-items: center;
   gap: 0.6rem;
   background: #fff;
-  color: var(--go-groen-donker);
+  color: var(--go-accent-hover, var(--go-groen-donker));
   border: none;
   font-family: inherit;
   font-size: 0.92rem;
@@ -222,7 +222,7 @@
 }
 
 .module-kaart .pijl { color: var(--go-gedimd); font-size: 1.1rem; line-height: 1; }
-.module-kaart:hover .pijl { color: var(--go-groen); }
+.module-kaart:hover .pijl { color: var(--go-accent-tekst, var(--go-groen)); }
 
 .mini-spoor {
   width: 56px; height: 4px;
@@ -255,7 +255,7 @@
   font-family: inherit; font-size: 0.85rem; font-weight: 500;
   color: var(--go-tekst-2); cursor: pointer; white-space: nowrap;
 }
-.leesbalk .terug:hover { color: var(--go-groen); }
+.leesbalk .terug:hover { color: var(--go-accent-tekst, var(--go-groen)); }
 
 .leesbalk .naam {
   flex: 1;
@@ -284,7 +284,7 @@
 }
 .moduletitel .kicker {
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--go-groen); margin: 0 0 0.6rem;
+  text-transform: uppercase; color: var(--go-accent-tekst, var(--go-groen)); margin: 0 0 0.6rem;
 }
 .moduletitel h1 {
   margin: 0;
@@ -329,10 +329,10 @@
 .blok ul, .blok ol { margin: 0 0 1.1rem; padding-left: var(--inspring); }
 .blok li { margin-bottom: 0.45rem; }
 .blok li p { margin: 0; }
-.blok li::marker { color: var(--go-groen); }
+.blok li::marker { color: var(--go-accent-tekst, var(--go-groen)); }
 .blok strong { font-weight: 600; }
 .blok em { color: var(--go-tekst-3); }
-.blok a { color: var(--go-groen); }
+.blok a { color: var(--go-accent-tekst, var(--go-groen)); }
 
 .blok h3, .blok h4 {
   margin: 1.75rem 0 0.6rem;
@@ -402,7 +402,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
 .tab-knoppen button[aria-selected="true"] {
   background: var(--go-kaart);
   border-color: var(--go-rand);
-  color: var(--go-groen);
+  color: var(--go-accent-tekst, var(--go-groen));
   font-weight: 600;
 }
 .tab-inhoud { padding: var(--binnen); }
@@ -410,7 +410,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
 .accordeon-inhoud ul, .accordeon-inhoud ol { margin: 0 0 0.9rem; padding-left: var(--inspring); }
 .tab-inhoud li, .accordeon-inhoud li { font-size: 1rem; line-height: 1.72; margin-bottom: 0.4rem; }
 .tab-inhoud li p, .accordeon-inhoud li p { margin: 0; }
-.tab-inhoud li::marker, .accordeon-inhoud li::marker { color: var(--go-groen); }
+.tab-inhoud li::marker, .accordeon-inhoud li::marker { color: var(--go-accent-tekst, var(--go-groen)); }
 .tab-inhoud > :last-child, .accordeon-inhoud > :last-child { margin-bottom: 0; }
 .tab-inhoud p { font-size: 1rem; line-height: 1.72; margin: 0 0 0.9rem; }
 .tab-inhoud > :first-child, .accordeon-inhoud > :first-child { margin-top: 0; }
@@ -428,7 +428,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
 
 .vraag .label {
   font-size: 0.7rem; font-weight: 600; letter-spacing: 0.09em;
-  text-transform: uppercase; color: var(--go-groen);
+  text-transform: uppercase; color: var(--go-accent-tekst, var(--go-groen));
   margin-bottom: 0.7rem;
 }
 
@@ -499,7 +499,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.knop-klein:hover:not(:disabled) { background: var(--go-groen-donker); border-color: var(--go-groen-donker); }
+.knop-klein:hover:not(:disabled) { background: var(--go-accent-hover, var(--go-groen-donker)); border-color: var(--go-accent-hover, var(--go-groen-donker)); }
 .knop-klein:disabled { opacity: 0.45; cursor: default; }
 .knop-klein.stil { background: transparent; color: var(--go-tekst-2); border-color: var(--go-rand); }
 .knop-klein.stil:hover { border-color: var(--go-groen); color: var(--go-groen); background: transparent; }
@@ -648,7 +648,7 @@ figure.beeld figcaption a { color: var(--go-groen-donker); }
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.doorgaan button:hover:not(:disabled) { background: var(--go-groen-donker); }
+.doorgaan button:hover:not(:disabled) { background: var(--go-accent-hover, var(--go-groen-donker)); }
 .doorgaan button:disabled { background: var(--go-rand); color: var(--go-tekst-2); cursor: default; }
 
 .doorgaan .hint { font-size: 0.82rem; color: var(--go-tekst-2); }
@@ -740,10 +740,10 @@ figure.schema figcaption {
   content: '+';
   flex: 0 0 auto;
   font-size: 1.2rem; font-weight: 400; line-height: 1;
-  color: var(--go-groen);
+  color: var(--go-accent-tekst, var(--go-groen));
 }
 .accordeon details[open] summary::after { content: '−'; }
-.accordeon summary:hover { color: var(--go-groen); }
+.accordeon summary:hover { color: var(--go-accent-tekst, var(--go-groen)); }
 .accordeon-inhoud { padding: 0 var(--binnen) 1.2rem; }
 .accordeon-inhoud p { font-size: 1rem; line-height: 1.72; margin: 0 0 0.9rem; }
 .accordeon-inhoud p:last-child { margin-bottom: 0; }
@@ -837,7 +837,7 @@ blockquote.statement p { margin: 0; }
 }
 .tijdlijn-label {
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--go-groen);
+  text-transform: uppercase; color: var(--go-accent-tekst, var(--go-groen));
   margin-bottom: 0.25rem;
 }
 .tijdlijn h3 { margin: 0 0 0.35rem; font-size: 1.02rem; font-weight: 600; }
@@ -855,7 +855,7 @@ blockquote.statement p { margin: 0; }
 }
 .stappenplan .label {
   font-size: 0.7rem; font-weight: 600; letter-spacing: 0.09em;
-  text-transform: uppercase; color: var(--go-groen);
+  text-transform: uppercase; color: var(--go-accent-tekst, var(--go-groen));
   margin-bottom: 0.7rem;
 }
 .stappenplan h3 { margin: 0 0 0.5rem; font-size: 1.06rem; font-weight: 600; }
@@ -1037,7 +1037,7 @@ figure.insluiting figcaption a { color: var(--go-groen-donker); }
 }
 .klikpunt:not(.gezien) { animation: puls 2s ease-in-out infinite; }
 .klikpunt:hover, .klikpunt[aria-pressed="true"] { transform: scale(1.15); }
-.klikpunt[aria-pressed="true"] { background: var(--go-groen-donker); }
+.klikpunt[aria-pressed="true"] { background: var(--go-accent-hover, var(--go-groen-donker)); }
 .klikpunt.gezien:not([aria-pressed="true"]) { background: var(--go-kaart); color: var(--go-groen-donker); border-color: var(--go-groen); }
 .klikpunt:focus-visible { outline: 3px solid var(--go-tekst); outline-offset: 2px; }
 @keyframes puls {
@@ -1170,7 +1170,7 @@ hr.scheiding { margin: 2.75rem auto; width: 4rem; border: 0; border-top: 2px sol
   box-shadow: var(--go-schaduw);
   padding: var(--binnen);
 }
-.scenario .label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--go-groen); margin-bottom: 0.8rem; }
+.scenario .label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--go-accent-tekst, var(--go-groen)); margin-bottom: 0.8rem; }
 .scenario-kop { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.9rem; }
 .scenario-bol {
   flex: 0 0 auto;
