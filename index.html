@@ -439,6 +439,16 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .keuzelijst button:hover { border-color: var(--accent); background: var(--accent-zacht); }
 .keuzelijst strong { font-size: 14px; }
 .keuzelijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
+.sjabloonlijst { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sjabloonlijst button { text-align: left; display: grid; gap: 5px; align-content: start; padding: 12px 14px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--paneel); min-width: 0; }
+.sjabloonlijst button:hover { border-color: var(--accent); }
+.sjabloonlijst button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-zacht); box-shadow: inset 0 0 0 1px var(--accent); }
+.sjabloon-naam { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.sjabloon-naam strong { font-size: 14px; }
+.sjabloon-naam em { font-style: normal; font-size: 11.5px; color: var(--tekst-3); }
+.sjabloonlijst small { font-size: 12px; color: var(--tekst-2); line-height: 1.45; }
+.sjabloon-blokken { font-size: 11px; color: var(--tekst-3); line-height: 1.45; }
+@media (max-width: 560px) { .sjabloonlijst { grid-template-columns: minmax(0, 1fr); } }
 
 /* klikplaat en tabel in de editor */
 .plaats-vlak { position: relative; border-radius: 8px; overflow: hidden; cursor: crosshair; border: 1px solid var(--lijn); background: var(--vlak); }
@@ -516,6 +526,7 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
         <button type="button" class="icoonknop" id="paneel-links" aria-pressed="true" title="Structuur in- of uitklappen (Alt+1)" aria-label="Structuur in- of uitklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
         <button type="button" class="icoonknop" id="paneel-focus" aria-pressed="false" title="Focus: alleen de editor (Alt+0)" aria-label="Focus op de editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></svg></button>
         <button type="button" class="icoonknop" id="paneel-rechts" aria-pressed="true" title="Voorbeeld in- of uitklappen (Alt+2)" aria-label="Voorbeeld in- of uitklappen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
+        <button type="button" class="icoonknop" id="knop-weergave" title="Weergave van de bouwer: thema, kleur en grootte" aria-label="Weergave van de bouwer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.7-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.8 1.8-1.8H16a5 5 0 0 0 5-5c0-3.9-4-7-9-7Z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/></svg></button>
       </span>
       <button type="button" class="knop" id="knop-opslaan" title="Opslaan als bestand op je computer (Ctrl+S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/></svg><span class="lbl">Opslaan</span></button>
       <button type="button" class="knop" id="knop-openen" title="Een bouwbestand of geëxporteerde e-learning openen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span class="lbl">Openen</span></button>
@@ -3707,6 +3718,9 @@ function Speler(root, cursus, opts) {
       if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
     } catch (e) { if (arguments.length > 1 && v !== null) throw e; return null; }
   }
+  /* De bouwer kan vergroot zijn (Weergave); posities uit getBoundingClientRect
+     zijn dan in schermpixels, style-waarden in pixels van vóór het vergroten. */
+  function zoomVan() { return parseFloat(getComputedStyle(document.documentElement).zoom) || 1; }
   function host(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
 
   var capPromises = {};
@@ -3817,10 +3831,11 @@ function Speler(root, cursus, opts) {
     });
     document.body.append(m);
     /* Rechts uitgelijnd onder de knop; past het daar niet, dan erboven. */
-    var r = knop.getBoundingClientRect(), mh = m.offsetHeight, mw = m.offsetWidth;
+    var z = zoomVan();
+    var r = knop.getBoundingClientRect(), mh = m.offsetHeight * z, mw = m.offsetWidth * z;
     var boven = r.bottom + 4 + mh > window.innerHeight - 8 && r.top - 4 - mh > 8;
-    m.style.top = (boven ? r.top - 4 - mh : Math.min(r.bottom + 4, Math.max(8, window.innerHeight - 8 - mh))) + 'px';
-    m.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - 8 - mw)) + 'px';
+    m.style.top = (boven ? r.top - 4 - mh : Math.min(r.bottom + 4, Math.max(8, window.innerHeight - 8 - mh))) / z + 'px';
+    m.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - 8 - mw)) / z + 'px';
     knop.setAttribute('aria-expanded', 'true');
     Menu = { el: m, knop: knop };
     var eerste = m.querySelector('button:not(:disabled)');
@@ -3880,7 +3895,7 @@ function Speler(root, cursus, opts) {
         var naast = plek < alle.length ? alle[plek].getBoundingClientRect() : alle[alle.length - 1].getBoundingClientRect();
         var vorige = plek > 0 ? alle[plek - 1].getBoundingClientRect() : null;
         var y = plek === 0 ? naast.top - 3 : plek === alle.length ? naast.bottom + 3 : (vorige.bottom + naast.top) / 2;
-        lijn.style.top = (y - lr.top) + 'px';
+        lijn.style.top = (y - lr.top) / zoomVan() + 'px';
       }
       function rand() {
         if (!bezig) return;
@@ -5134,6 +5149,221 @@ function Speler(root, cursus, opts) {
     return b;
   }
 
+  /* ================================================================ standaardsjablonen */
+
+  /* Kant-en-klare opbouw voor een module. De blokken staan klaar met
+     aanwijzingen die met ✎ beginnen; die vervangt de maker door eigen tekst,
+     video's en afbeeldingen. De controlelijst wijst aan waar nog ✎ staat. */
+  var SJ = '✎ ';
+  function sjTekst(kop, tekst) { return { t: 'text', heading: SJ + kop, body: SJ + tekst }; }
+  function sjVideo(titel) { return { t: 'video', bron: '', title: SJ + titel }; }
+  function sjBeeld(bijschrift) { return { t: 'image', src: '', caption: SJ + bijschrift, alt: '' }; }
+  /* goed: de plek van het juiste antwoord, zodat die niet steeds bovenaan staat. */
+  function sjVraag(vraag, opties, goed, uitleg) {
+    return { t: 'quiz', question: SJ + vraag, options: opties.map(function (o, i) { return { text: SJ + o, correct: i === goed }; }), feedback: SJ + uitleg };
+  }
+  function sjNotitie(soort, tekst) { return { t: 'note', soort: soort, title: '', body: SJ + tekst }; }
+  var SJ_DOOR = { t: 'continue' };
+
+  var SJABLONEN = [
+    {
+      id: 'uitleg', naam: 'Uitleg met video', duur: 'ongeveer 20 minuten',
+      uitleg: 'Inleiding en leerdoelen, een kernbegrip met video, een praktijkvoorbeeld met beeld, twee kennisvragen en een samenvatting.',
+      blokken: [
+        sjTekst('Waar gaat deze module over?', 'Vertel in twee of drie zinnen wat de student gaat leren en waarom dat ertoe doet voor de opleiding of het werkveld.'),
+        { t: 'list', ordered: false, items: [SJ + 'Na deze module kun je … (begin met een werkwoord: uitleggen, toepassen, vergelijken)', SJ + 'Tweede leerdoel', SJ + 'Derde leerdoel (mag weg)'] },
+        SJ_DOOR,
+        sjTekst('Het kernbegrip', 'Leg het belangrijkste begrip uit in gewone taal: eerst een korte definitie, daarna een herkenbaar voorbeeld.'),
+        sjVideo('Titel van de video. Plak hierboven de link van YouTube of Vimeo.'),
+        sjVraag('Stel een vraag over de video waarbij de student het begrip moet toepassen, niet alleen herhalen.', ['Aannemelijk maar fout antwoord', 'Het juiste antwoord', 'Ander aannemelijk fout antwoord'], 1, 'Leg uit waarom het juiste antwoord klopt en waar de fout in de andere zit.'),
+        SJ_DOOR,
+        { t: 'imagetext', src: '', alt: '', caption: '', kant: 'links', heading: SJ + 'Een voorbeeld uit de praktijk', body: SJ + 'Beschrijf een concreet voorbeeld: een bedrijf, een situatie of een product. Kies hiernaast een foto of schema dat erbij past.' },
+        sjNotitie('tip', 'Een vuistregel of een veelgemaakte fout die de student helpt het begrip goed te gebruiken.'),
+        sjVraag('Leg een nieuwe situatie voor: welke keuze past het best bij het begrip?', ['Fout antwoord dat op het eerste gezicht logisch lijkt', 'Fout antwoord met een halve waarheid', 'Het juiste antwoord'], 2, 'Leg uit wat deze situatie met het begrip te maken heeft.'),
+        SJ_DOOR,
+        sjTekst('Samenvatting', 'Zet in drie zinnen op een rij wat de student moet onthouden.')
+      ]
+    },
+    {
+      id: 'casus', naam: 'Casus en toepassen', duur: 'ongeveer 30 minuten',
+      uitleg: 'Een praktijkcasus met beeld en achtergrond, een analyse met een vraag, een gesprek met keuzes en een reflectieopdracht.',
+      blokken: [
+        sjTekst('De casus', 'Stel de casus voor: welke organisatie, welk probleem en welke rol heeft de student?'),
+        sjBeeld('Foto of schema bij de casus. Kies hierboven een afbeelding.'),
+        { t: 'accordion', items: [
+          { title: SJ + 'De organisatie', body: SJ + 'Wat doet de organisatie, hoe groot is ze en wat maakt haar bijzonder?' },
+          { title: SJ + 'Het probleem', body: SJ + 'Wat gaat er mis of wat moet er beter, en sinds wanneer?' },
+          { title: SJ + 'De belangen', body: SJ + 'Wie zijn erbij betrokken en wat willen zij?' }
+        ] },
+        SJ_DOOR,
+        sjTekst('Analyse', 'Welke theorie of welk model helpt om de casus te begrijpen? Leg kort uit hoe je het hier toepast.'),
+        sjVraag('Welke verklaring past het best bij wat er in de casus gebeurt?', ['Het juiste antwoord', 'Een verklaring die bij een ander model hoort', 'Een verklaring die te kort door de bocht is'], 0, 'Laat zien hoe het model de casus verklaart.'),
+        SJ_DOOR,
+        {
+          t: 'scenario', persoon: SJ + 'Naam', rol: SJ + 'Rol in de casus', intro: SJ + 'Schets het gesprek: waar ben je en wat wil de ander van je?', slot: SJ + 'Wat neemt de student mee uit dit gesprek?',
+          scenes: [
+            { id: 's1', text: SJ + 'Wat zegt de gesprekspartner als opening?', choices: [
+              { text: SJ + 'Een sterke reactie van de student', reactie: SJ + 'Hoe reageert de ander?', uitleg: SJ + 'Waarom werkt dit?', naar: 's2' },
+              { text: SJ + 'Een zwakkere reactie', reactie: SJ + 'Hoe reageert de ander?', uitleg: SJ + 'Wat had beter gekund?', naar: 's2' }
+            ] },
+            { id: 's2', text: SJ + 'Hoe gaat het gesprek verder?', choices: [
+              { text: SJ + 'Hoe sluit de student af?', reactie: SJ + 'Laatste reactie van de ander', uitleg: '', naar: 'einde' }
+            ] }
+          ]
+        },
+        SJ_DOOR,
+        sjNotitie('opdracht', 'Reflectie: wat zou jij anders doen in deze casus? Schrijf het in drie zinnen op of bespreek het met je groep.'),
+        sjTekst('Tot slot', 'Wat is de belangrijkste les uit deze casus?')
+      ]
+    },
+    {
+      id: 'begrippen', naam: 'Begrippen leren', duur: 'ongeveer 15 minuten',
+      uitleg: 'Begrippenkaartjes om te omdraaien, daarna oefenen met een koppelvraag, een invulvraag en een sorteeropdracht.',
+      blokken: [
+        sjTekst('De begrippen van deze module', 'Vertel waarom deze begrippen belangrijk zijn en waar de student ze tegenkomt.'),
+        { t: 'cards', items: [
+          { front: SJ + 'Begrip 1', back: SJ + 'Uitleg in één of twee zinnen' },
+          { front: SJ + 'Begrip 2', back: SJ + 'Uitleg in één of twee zinnen' },
+          { front: SJ + 'Begrip 3', back: SJ + 'Uitleg in één of twee zinnen' },
+          { front: SJ + 'Begrip 4', back: SJ + 'Uitleg in één of twee zinnen' }
+        ] },
+        SJ_DOOR,
+        { t: 'match', question: SJ + 'Koppel elk begrip aan de juiste omschrijving.', pairs: [
+          { left: SJ + 'Begrip 1', right: SJ + 'Omschrijving 1' },
+          { left: SJ + 'Begrip 2', right: SJ + 'Omschrijving 2' },
+          { left: SJ + 'Begrip 3', right: SJ + 'Omschrijving 3' },
+          { left: SJ + 'Begrip 4', right: SJ + 'Omschrijving 4' }
+        ], feedback: SJ + 'Leg kort het verschil uit tussen de begrippen die studenten vaak verwarren.' },
+        { t: 'fill', question: SJ + 'Vul het ontbrekende begrip in.', text: SJ + 'Schrijf een zin waarin een [begrip] ontbreekt. Zet het antwoord tussen haken, zoals hier.', feedback: SJ + 'Leg uit waarom dit begrip in de zin past.' },
+        SJ_DOOR,
+        { t: 'sort', question: SJ + 'Bij welke categorie hoort elk voorbeeld?', piles: [SJ + 'Categorie A', SJ + 'Categorie B'], items: [
+          { text: SJ + 'Voorbeeld 1', pile: 0 }, { text: SJ + 'Voorbeeld 2', pile: 1 }, { text: SJ + 'Voorbeeld 3', pile: 0 }, { text: SJ + 'Voorbeeld 4', pile: 1 }
+        ], feedback: SJ + 'Leg uit waar het verschil tussen de categorieën zit.' },
+        sjTekst('Samenvatting', 'Zet de begrippen nog één keer op een rij, in je eigen woorden.')
+      ]
+    },
+    {
+      id: 'vaardigheid', naam: 'Vaardigheid oefenen', duur: 'ongeveer 25 minuten',
+      uitleg: 'Een demonstratievideo, een stappenplan, een voorbeeld van goed werk, een kennisvraag en een oefenopdracht met werkblad.',
+      blokken: [
+        sjTekst('Wat ga je leren?', 'Beschrijf de vaardigheid en wanneer de student die nodig heeft.'),
+        sjVideo('Demonstratie: iemand doet het voor. Plak hierboven de link.'),
+        SJ_DOOR,
+        { t: 'steps', intro: { title: SJ + 'Zo pak je het aan', body: SJ + 'Korte inleiding op de werkwijze' }, steps: [
+          { title: SJ + 'Stap 1', body: SJ + 'Wat doe je en waar let je op?' },
+          { title: SJ + 'Stap 2', body: SJ + 'Wat doe je en waar let je op?' },
+          { title: SJ + 'Stap 3', body: SJ + 'Wat doe je en waar let je op?' },
+          { title: SJ + 'Stap 4', body: SJ + 'Wat doe je en waar let je op?' }
+        ], summary: { title: SJ + 'Klaar', body: SJ + 'Waaraan zie je dat het gelukt is?' } },
+        sjBeeld('Een voorbeeld van goed werk. Kies hierboven een afbeelding.'),
+        sjNotitie('let', 'De valkuil waar beginners het vaakst in trappen.'),
+        sjVraag('Welke stap gaat in deze situatie mis?', ['Een stap die wel goed gaat', 'Het juiste antwoord', 'Een stap die er niet toe doet'], 1, 'Leg uit hoe je de fout herkent en herstelt.'),
+        SJ_DOOR,
+        sjNotitie('opdracht', 'Oefen zelf: beschrijf de opdracht, hoeveel tijd ervoor staat en wat de student inlevert.'),
+        { t: 'links', items: [{ label: SJ + 'Werkblad of template', href: '' }] }
+      ]
+    },
+    {
+      id: 'kort', naam: 'Korte module', duur: 'ongeveer 10 minuten',
+      uitleg: 'Snel en compact: een korte uitleg, een video, twee vragen en een tip om mee te nemen.',
+      blokken: [
+        sjTekst('In het kort', 'Wat leert de student in deze korte module? Eén alinea is genoeg.'),
+        sjVideo('Titel van de video. Plak hierboven de link.'),
+        sjVraag('Een vraag over de kern van de video.', ['Het juiste antwoord', 'Aannemelijk fout antwoord', 'Ander fout antwoord'], 0, 'Korte uitleg bij het juiste antwoord.'),
+        SJ_DOOR,
+        sjTekst('Verdieping', 'Eén alinea die een stap verder gaat dan de video.'),
+        sjVraag('Een toepassingsvraag over de verdieping.', ['Aannemelijk fout antwoord', 'Ander fout antwoord', 'Het juiste antwoord'], 2, 'Korte uitleg bij het juiste antwoord.'),
+        sjNotitie('tip', 'Wat neemt de student mee naar de volgende les?')
+      ]
+    },
+    {
+      id: 'debat', naam: 'Debat en perspectieven', duur: 'ongeveer 25 minuten',
+      uitleg: 'Een stelling, drie perspectieven in tabbladen, een vergelijkende tabel, een vraag met meer goede antwoorden en een stemming.',
+      blokken: [
+        sjTekst('Waar gaat de discussie over?', 'Schets de kwestie en waarom mensen er verschillend over denken.'),
+        { t: 'quote', body: SJ + 'Een prikkelende stelling die het debat op scherp zet.' },
+        { t: 'tabs', items: [
+          { title: SJ + 'Perspectief 1', body: SJ + 'Wie denkt zo, en met welke argumenten?' },
+          { title: SJ + 'Perspectief 2', body: SJ + 'Wie denkt zo, en met welke argumenten?' },
+          { title: SJ + 'Perspectief 3', body: SJ + 'Wie denkt zo, en met welke argumenten?' }
+        ] },
+        SJ_DOOR,
+        { t: 'table', kop: true, zijkop: true, caption: SJ + 'Bron of toelichting', rows: [
+          ['', SJ + 'Perspectief 1', SJ + 'Perspectief 2', SJ + 'Perspectief 3'],
+          [SJ + 'Kernargument', SJ + '…', SJ + '…', SJ + '…'],
+          [SJ + 'Zwakke plek', SJ + '…', SJ + '…', SJ + '…']
+        ] },
+        { t: 'quiz', multi: true, question: SJ + 'Welke argumenten horen bij perspectief 1? Kies er twee.', options: [
+          { text: SJ + 'Argument dat erbij hoort', correct: true }, { text: SJ + 'Argument van een ander perspectief', correct: false },
+          { text: SJ + 'Tweede argument dat erbij hoort', correct: true }, { text: SJ + 'Argument dat bij geen enkel perspectief hoort', correct: false }
+        ], feedback: SJ + 'Leg uit wat de argumenten van dit perspectief verbindt.' },
+        SJ_DOOR,
+        { t: 'embed', bron: '', url: '', title: SJ + 'Stemming of vragenmuur, bijvoorbeeld Mentimeter of Padlet. Plak hierboven de link.', height: 480 },
+        sjTekst('Jouw standpunt', 'Vraag de student een eigen standpunt in te nemen en dat met één argument te onderbouwen.')
+      ]
+    }
+  ];
+
+  /* Een module die alleen een leeg tekstblok heeft (zo begint elke nieuwe
+     module) mag het sjabloon zonder meer vullen. */
+  function moduleIsLeeg(l) {
+    return !l.blocks.length || (l.blocks.length === 1 && l.blocks[0].t === 'text' && leeg(l.blocks[0].body) && leeg(l.blocks[0].heading));
+  }
+
+  function zetSjabloon(sj, alsNieuw) {
+    var blokken = blokkenUit(kloon(sj.blokken));
+    var l = les();
+    if (alsNieuw || !l) {
+      l = { id: nieuwId('m'), title: sj.naam, deadline: '', blocks: blokken };
+      S.cursus.lessons.push(l);
+      gewijzigd(l.id);
+      kiesModule(l.id);
+    } else {
+      l.blocks = moduleIsLeeg(l) ? blokken : l.blocks.concat(blokken);
+      S.gekozenK = blokken[0]._k;
+      gewijzigd(l.id);
+      renderEditor();
+      renderStructuur();
+      var k = kaarten[blokken[0]._k];
+      if (k) k.kaart.scrollIntoView({ block: 'start' });
+    }
+    melding('Sjabloon "' + sj.naam + '" staat klaar. Vervang de tekst met ✎ door je eigen inhoud.');
+  }
+
+  function dialoogSjablonen() {
+    var gekozen = SJABLONEN[0];
+    var l = les();
+    dialoog(function (sluit) {
+      var kaartjes = SJABLONEN.map(function (sj) {
+        var soorten = [];
+        sj.blokken.forEach(function (b) {
+          var naam = b.t === 'quiz' ? (b.multi ? 'Meerdere antwoorden' : 'Kennisvraag') : TYPES[b.t].naam;
+          if (b.t !== 'continue' && soorten.indexOf(naam) < 0) soorten.push(naam);
+        });
+        return h('button', {
+          type: 'button', 'aria-pressed': String(sj === gekozen),
+          onclick: function () {
+            gekozen = sj;
+            kaartjes.forEach(function (k, i) { k.setAttribute('aria-pressed', String(SJABLONEN[i] === sj)); });
+          }
+        },
+          h('span', { class: 'sjabloon-naam' }, h('strong', { text: sj.naam }), h('em', { text: sj.duur })),
+          h('small', { text: sj.uitleg }),
+          h('span', { class: 'sjabloon-blokken', text: soorten.join(' · ') }));
+      });
+      var leegNu = l && moduleIsLeeg(l);
+      return [
+        h('h2', null, 'Standaard sjablonen'),
+        h('p', null, 'Kies een opbouw. De blokken staan klaar met aanwijzingen (✎); daarna voeg je zelf de tekst, video\'s en afbeeldingen toe.'),
+        h('div', { class: 'sjabloonlijst', role: 'group', 'aria-label': 'Sjablonen' }, kaartjes),
+        h('div', { class: 'voet' },
+          h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'),
+          l && !leegNu ? h('button', { type: 'button', class: 'knop', onclick: function () { sluit(); zetSjabloon(gekozen, false); } }, 'Onderaan deze module') : null,
+          h('button', { type: 'button', class: 'knop primair', onclick: function () { sluit(); zetSjabloon(gekozen, !leegNu); } }, leegNu ? 'In deze lege module zetten' : 'Als nieuwe module'))
+      ];
+    });
+  }
+
   /* ================================================================ afbeeldingen */
 
   /* Verkleinen tot hooguit 1600 px en zo comprimeren dat een afbeelding
@@ -5334,6 +5564,7 @@ function Speler(root, cursus, opts) {
       lijst,
       h('div', { class: 'knoprij' },
         h('button', { type: 'button', class: 'knop klein', onclick: nieuweModule }, ico('plus'), 'Module'),
+        h('button', { type: 'button', class: 'knop klein', onclick: dialoogSjablonen }, ico('steps'), 'Uit sjabloon'),
         S.sample ? h('button', { type: 'button', class: 'knop klein claude', onclick: dialoogModule }, ico('ster'), 'Module met Claude') : null));
 
     var beheer = h('div', { class: 'sectie' },
@@ -5344,7 +5575,9 @@ function Speler(root, cursus, opts) {
         Bestand.gekoppeld() && Bestand.kan() ? h('button', { type: 'button', class: 'knop klein', onclick: function () { Bestand.opslaan(true); } }, 'Ander bestand') : null,
         h('button', { type: 'button', class: 'knop klein', onclick: dialoogExport }, 'Exporteren'),
         h('button', { type: 'button', class: 'knop klein', onclick: dupliceerCursus }, 'Kopie maken'),
-        verwijderKnop('E-learning verwijderen', verwijderCursus)));
+        verwijderKnop('E-learning verwijderen', verwijderCursus)),
+      h('div', { class: 'knoprij', style: 'margin-top:12px' },
+        h('button', { type: 'button', class: 'knop-tekst', onclick: function () { Weergave.dialoog(); } }, 'Weergave van de bouwer: thema, kleur en grootte')));
 
     baan.append(meta, vormgeving, modules, beheer);
     renderRail();
@@ -5604,6 +5837,7 @@ function Speler(root, cursus, opts) {
         h('h2', { style: 'font-size:18px;margin-bottom:8px' }, 'Nog geen modules'),
         h('p', { style: 'color:var(--tekst-2);margin:0 0 14px' }, 'Een e-learning bestaat uit modules. Begin met je eerste.'),
         h('div', { class: 'knoprij' }, h('button', { type: 'button', class: 'knop primair', onclick: nieuweModule }, 'Eerste module maken'),
+          h('button', { type: 'button', class: 'knop', onclick: dialoogSjablonen }, ico('steps'), 'Standaard sjablonen'),
           S.sample ? h('button', { type: 'button', class: 'knop claude', onclick: dialoogModule }, ico('ster'), 'Laat Claude een module opzetten') : null)));
       return;
     }
@@ -5652,7 +5886,8 @@ function Speler(root, cursus, opts) {
     var onder = h('div', { class: 'toevoegen-onder' },
       S.paletNa === 'onder' ? palet('onder') : h('div', { class: 'knoprij' },
         h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', false); } }, ico('plus'), 'Standaard blok'),
-        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', true); } }, 'Alle blokken')));
+        h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', true); } }, 'Alle blokken'),
+        h('button', { type: 'button', class: 'knop', onclick: dialoogSjablonen }, ico('steps'), 'Standaard sjablonen')));
     ed.append(onder);
     Dicht.bewaar(l);
   }
@@ -6597,6 +6832,8 @@ function Speler(root, cursus, opts) {
     var type = TYPES[b.t];
     var fout = type && type.waarschuwing ? type.waarschuwing(b) : '';
     var onaf = ONAF[b.t] ? ONAF[b.t](b) : [];
+    /* Aanwijzingen uit een standaardsjabloon beginnen met ✎. */
+    if (JSON.stringify(b).indexOf(SJ.trim()) >= 0) onaf.unshift('Nog aanwijzingen uit het sjabloon (✎)');
     return { fout: fout ? [fout] : [], onaf: onaf.filter(function (x) { return x !== fout; }) };
   }
 
@@ -7045,7 +7282,7 @@ function Speler(root, cursus, opts) {
         var begin = kant === 'links' ? P.links : P.rechts;
         werk.classList.add('slepen');
         function beweeg(ev) {
-          var b = kant === 'links' ? ev.clientX - rand.left : rand.right - ev.clientX;
+          var b = (kant === 'links' ? ev.clientX - rand.left : rand.right - ev.clientX) / zoomVan();
           var open = b >= DICHT_ONDER;
           if (kant === 'links') { P.linksOpen = open; P.links = open ? klem(b, MIN_LINKS, MAX_LINKS) : begin; }
           else { P.rechtsOpen = open; P.rechts = open ? klem(b, MIN_RECHTS, maxRechts()) : begin; }
@@ -7287,6 +7524,180 @@ function Speler(root, cursus, opts) {
     werkControleBij();
   }
 
+  /* ================================================================ weergave van de bouwer */
+
+  /* Kleuren, grootte en letter van de bouwer zelf, per persoon in deze browser.
+     De e-learning verandert er niet door. Automatisch laat de stylesheet
+     beslissen (licht of donker, zoals de computer); elk ander thema zet alle
+     kleuren inline, zodat niets uit het systeemthema erdoorheen lekt. */
+  var Weergave = (function () {
+    var LICHT = {
+      bg: '#f1f3ee', paneel: '#ffffff', vlak: '#f6f7f3', lijn: '#dde2d8',
+      tekst: '#1c2b24', 'tekst-2': '#5d6d65', 'tekst-3': '#87958d',
+      accent: '#2c6a4d', 'accent-sterk': '#1f5039', 'accent-zacht': '#e2eee6', 'op-accent': '#ffffff',
+      waarschuwing: '#a8521f', 'waarschuwing-zacht': '#f8eadf', gevaar: '#b23a2e', 'gevaar-zacht': '#f9e5e2',
+      schaduw: '0 10px 30px rgba(20, 40, 30, 0.12)'
+    };
+    var DONKER = {
+      bg: '#111613', paneel: '#181f1b', vlak: '#1e2621', lijn: '#2b3630',
+      tekst: '#e5ece7', 'tekst-2': '#a3b2a9', 'tekst-3': '#77877e',
+      accent: '#7cc39a', 'accent-sterk': '#a3dbb9', 'accent-zacht': '#203a2c', 'op-accent': '#0f1a14',
+      waarschuwing: '#e2a172', 'waarschuwing-zacht': '#3a2a1d', gevaar: '#ef8b7f', 'gevaar-zacht': '#3b2220',
+      schaduw: '0 10px 30px rgba(0, 0, 0, 0.45)'
+    };
+    var THEMAS = {
+      auto: { naam: 'Automatisch', uitleg: 'Licht of donker, zoals je computer' },
+      licht: { naam: 'Licht', uitleg: 'Wit met bosgroen', kleuren: {} },
+      donker: { naam: 'Donker', uitleg: 'Rustig voor de ogen', donker: true, kleuren: {} },
+      warm: { naam: 'Warm', uitleg: 'Zand met terracotta', kleuren: {
+        bg: '#f6f1ea', paneel: '#fffdf9', vlak: '#f8f3ec', lijn: '#e6dccf', tekst: '#2b2018', 'tekst-2': '#6f6155', 'tekst-3': '#998a7c',
+        accent: '#a84f2a', 'accent-sterk': '#843c1e', 'accent-zacht': '#f6e6dc' } },
+      oceaan: { naam: 'Oceaan', uitleg: 'Koel grijs met blauw', kleuren: {
+        bg: '#eef3f7', paneel: '#ffffff', vlak: '#f4f8fb', lijn: '#d6e0e8', tekst: '#142430', 'tekst-2': '#556878', 'tekst-3': '#8496a4',
+        accent: '#1f5f8b', 'accent-sterk': '#174a6d', 'accent-zacht': '#e1ecf5' } },
+      paars: { naam: 'Paars', uitleg: 'Lila-grijs met violet', kleuren: {
+        bg: '#f3f1f7', paneel: '#ffffff', vlak: '#f7f5fb', lijn: '#e0dbea', tekst: '#221a2e', 'tekst-2': '#64597a', 'tekst-3': '#9187a3',
+        accent: '#5e3d9a', 'accent-sterk': '#482e78', 'accent-zacht': '#ebe4f6' } },
+      nacht: { naam: 'Nacht', uitleg: 'Donkerblauw met lichtblauw', donker: true, kleuren: {
+        bg: '#0f1520', paneel: '#161e2b', vlak: '#1c2534', lijn: '#2a3546', tekst: '#e4eaf3', 'tekst-2': '#a2afc2', 'tekst-3': '#76839a',
+        accent: '#8ab8f0', 'accent-sterk': '#b3d1f7', 'accent-zacht': '#1f3350', 'op-accent': '#0d1420' } },
+      contrast: { naam: 'Hoog contrast', uitleg: 'Zwart op wit, duidelijke lijnen', kleuren: {
+        bg: '#ffffff', paneel: '#ffffff', vlak: '#f2f2f2', lijn: '#6b6b6b', tekst: '#000000', 'tekst-2': '#2b2b2b', 'tekst-3': '#4a4a4a',
+        accent: '#0b4f9c', 'accent-sterk': '#083b75', 'accent-zacht': '#e3ecf8', waarschuwing: '#8a3d0f', gevaar: '#a1261b', schaduw: '0 0 0 1px #6b6b6b' } }
+    };
+    var GROOTTES = [['0.9', 'Klein'], ['1', 'Normaal'], ['1.1', 'Groot'], ['1.2', 'Groter']];
+    var LETTERS_UI = {
+      standaard: { naam: 'Standaard' },
+      systeem: { naam: 'Systeem', tekst: 'system-ui, "Segoe UI", -apple-system, sans-serif', kop: 'system-ui, "Segoe UI", -apple-system, sans-serif' },
+      leesbaar: { naam: 'Extra leesbaar', tekst: '"Atkinson Hyperlegible", Verdana, sans-serif', kop: '"Atkinson Hyperlegible", Verdana, sans-serif', google: 'Atkinson+Hyperlegible:wght@400;700' }
+    };
+    var mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+    var w = lees();
+
+    function lees() {
+      var x = {};
+      try { x = JSON.parse(ls('bouwer:weergave') || '{}') || {}; } catch (e) { x = {}; }
+      return {
+        thema: THEMAS[x.thema] ? x.thema : 'auto',
+        accent: /^#[0-9a-f]{6}$/i.test(x.accent) ? x.accent.toLowerCase() : '',
+        grootte: GROOTTES.some(function (g) { return g[0] === x.grootte; }) ? x.grootte : '1',
+        letter: LETTERS_UI[x.letter] ? x.letter : 'standaard'
+      };
+    }
+    function bewaarW() { try { ls('bouwer:weergave', JSON.stringify(w)); } catch (e) { /* geen opslag: dan geldt het alleen nu */ } }
+
+    function systeemDonker() {
+      var d = document.documentElement.getAttribute('data-theme');
+      return d === 'dark' || (d !== 'light' && !!(mq && mq.matches));
+    }
+
+    function kleurenVan(thema, accent) {
+      var t = THEMAS[thema];
+      var donker = thema === 'auto' ? systeemDonker() : !!t.donker;
+      if (thema === 'auto' && !accent) return null;
+      var k = {};
+      var basis = donker ? DONKER : LICHT;
+      Object.keys(basis).forEach(function (x) { k[x] = basis[x]; });
+      if (t.kleuren) Object.keys(t.kleuren).forEach(function (x) { k[x] = t.kleuren[x]; });
+      if (accent) {
+        k.accent = accent;
+        k['accent-sterk'] = donker ? meng(accent, '#ffffff', 0.3) : meng(accent, '#000000', 0.22);
+        k['accent-zacht'] = meng(accent, k.paneel, donker ? 0.78 : 0.87);
+        k['op-accent'] = contrast(accent, '#ffffff') >= 4.5 ? '#ffffff' : (donker ? k.bg : '#111111');
+      }
+      return { kleuren: k, donker: donker };
+    }
+
+    function pasToe() {
+      var root = document.documentElement;
+      Object.keys(LICHT).forEach(function (x) { root.style.removeProperty('--' + x); });
+      root.style.removeProperty('color-scheme');
+      var r = kleurenVan(w.thema, w.accent);
+      if (r) {
+        Object.keys(r.kleuren).forEach(function (x) { root.style.setProperty('--' + x, r.kleuren[x]); });
+        root.style.setProperty('color-scheme', r.donker ? 'dark' : 'light');
+      }
+      root.style.zoom = w.grootte === '1' ? '' : w.grootte;
+      var l = LETTERS_UI[w.letter];
+      if (l.tekst) { root.style.setProperty('--f-tekst', l.tekst); root.style.setProperty('--f-kop', l.kop); }
+      else { root.style.removeProperty('--f-tekst'); root.style.removeProperty('--f-kop'); }
+      if (l.google && !document.getElementById('weergave-letter')) {
+        document.head.append(h('link', { rel: 'stylesheet', id: 'weergave-letter', href: 'https://fonts.googleapis.com/css2?family=' + l.google + '&display=swap' }));
+      }
+    }
+
+    function zet(k, v) { w[k] = v; bewaarW(); pasToe(); }
+
+    function dialoogWeergave() {
+      dialoog(function (sluit) {
+        var themaKnoppen = Object.keys(THEMAS).map(function (k) {
+          var r = kleurenVan(k, '') || kleurenVan(systeemDonker() ? 'donker' : 'licht', '');
+          var kl = r.kleuren;
+          return h('button', {
+            type: 'button', class: 'sjabloon', 'aria-pressed': String(w.thema === k),
+            onclick: function () {
+              zet('thema', k);
+              themaKnoppen.forEach(function (b, i) { b.setAttribute('aria-pressed', String(Object.keys(THEMAS)[i] === k)); });
+            }
+          },
+            h('span', { class: 'staal', 'aria-hidden': 'true', style: 'background:' + kl.bg + ';border-color:' + kl.lijn },
+              h('i', { style: 'background:' + kl.paneel + ';box-shadow:inset 0 0 0 1px ' + kl.lijn }), h('i', { style: 'background:' + kl.accent })),
+            h('strong', { text: THEMAS[k].naam }),
+            h('small', { text: THEMAS[k].uitleg }));
+        });
+
+        var kleur = h('input', { type: 'color', id: 'wg-accent', value: w.accent || (kleurenVan(w.thema === 'auto' ? (systeemDonker() ? 'donker' : 'licht') : w.thema, '').kleuren.accent) });
+        var kleurTekst = h('span', { class: 'hulp', text: w.accent ? w.accent.toUpperCase() : 'Van het thema' });
+        /* Met style in plaats van hidden: .knop zet zelf een display. */
+        var kleurWeg = h('button', { type: 'button', class: 'knop klein', style: w.accent ? null : 'display:none', onclick: function () {
+          zet('accent', ''); kleurTekst.textContent = 'Van het thema'; kleurWeg.style.display = 'none';
+        } }, 'Themakleur');
+        kleur.addEventListener('input', function () { zet('accent', kleur.value.toLowerCase()); kleurTekst.textContent = w.accent.toUpperCase(); kleurWeg.style.display = ''; });
+
+        function segment(label, key, keuzes) {
+          var knoppen = keuzes.map(function (x) {
+            return h('button', { type: 'button', 'aria-pressed': String(w[key] === x[0]), onclick: function () {
+              zet(key, x[0]);
+              knoppen.forEach(function (b, i) { b.setAttribute('aria-pressed', String(keuzes[i][0] === x[0])); });
+            } }, x[1]);
+          });
+          return h('div', { class: 'veld' }, h('span', { class: 'veldlabel', text: label }),
+            h('span', { class: 'segment-keuze vorm-seg', role: 'group', 'aria-label': label }, knoppen));
+        }
+
+        var geavanceerd = h('details', { class: 'vorm-meer' },
+          h('summary', { text: 'Geavanceerd' }),
+          h('div', { class: 'velden' },
+            h('div', { class: 'veld' }, h('label', { for: 'wg-accent', text: 'Eigen accentkleur' }), h('div', { class: 'kleurrij' }, kleur, kleurTekst, kleurWeg)),
+            segment('Grootte van de bouwer', 'grootte', GROOTTES),
+            segment('Letter van de bouwer', 'letter', Object.keys(LETTERS_UI).map(function (k) { return [k, LETTERS_UI[k].naam]; }))));
+        geavanceerd.open = !!(w.accent || w.grootte !== '1' || w.letter !== 'standaard');
+
+        return [
+          h('h2', null, 'Weergave van de bouwer'),
+          h('p', null, 'Alleen voor jou, in deze browser. De vormgeving van je e-learning stel je in bij Vormgeving.'),
+          h('div', { class: 'sjablonen weergave-themas', role: 'group', 'aria-label': 'Thema van de bouwer' }, themaKnoppen),
+          geavanceerd,
+          h('div', { class: 'voet' },
+            h('button', { type: 'button', class: 'knop', onclick: function () {
+              w = { thema: 'auto', accent: '', grootte: '1', letter: 'standaard' };
+              bewaarW(); pasToe(); sluit(); dialoogWeergave();
+            } }, 'Alles terugzetten'),
+            h('button', { type: 'button', class: 'knop primair', onclick: sluit }, 'Klaar'))
+        ];
+      });
+    }
+
+    return {
+      start: function () {
+        pasToe();
+        /* Automatisch en een eigen accent rekenen met licht of donker van het systeem. */
+        if (mq && mq.addEventListener) mq.addEventListener('change', pasToe);
+      },
+      dialoog: dialoogWeergave
+    };
+  })();
+
   function koppel() {
     $('#cursus-keuze').addEventListener('change', function (e) {
       var w = e.target.value;
@@ -7309,6 +7720,8 @@ function Speler(root, cursus, opts) {
       }).catch(function (e) { if (!e || e.name !== 'AbortError') $('#bestand-openen').click(); });
     });
     Panelen.start();
+    Weergave.start();
+    $('#knop-weergave').addEventListener('click', Weergave.dialoog);
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
@@ -7360,6 +7773,7 @@ function Speler(root, cursus, opts) {
   function alsStap(fn) { return function () { Geschiedenis.los(); var r = fn.apply(this, arguments); Geschiedenis.los(); return r; }; }
   voegBlokIn = alsStap(voegBlokIn);
   nieuweModule = alsStap(nieuweModule);
+  zetSjabloon = alsStap(zetSjabloon);
   verwijderModule = alsStap(verwijderModule);
   verplaatsNaar = alsStap(verplaatsNaar);
 
