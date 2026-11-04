@@ -1701,10 +1701,10 @@
     }
   ];
 
-  /* Een module die alleen een leeg tekstblok heeft (zo begint elke nieuwe
-     module) mag het sjabloon zonder meer vullen. */
+  /* Een module met alleen een tekstblok zonder tekst (zo begint elke nieuwe
+     module en e-learning, soms met een kop) mag het sjabloon zonder meer vullen. */
   function moduleIsLeeg(l) {
-    return !l.blocks.length || (l.blocks.length === 1 && l.blocks[0].t === 'text' && leeg(l.blocks[0].body) && leeg(l.blocks[0].heading));
+    return !l.blocks.length || (l.blocks.length === 1 && l.blocks[0].t === 'text' && leeg(l.blocks[0].body));
   }
 
   /* Zet een sjabloon op een plek in de huidige module; een lege module vult
@@ -2243,6 +2243,7 @@
       h('div', { class: 'titelrij' }, titelInp, menuKnop('Module: meer opties', function () {
         return [
           { tekst: l.deadline ? 'Afronden vóór wijzigen…' : 'Afronden vóór instellen…', ico: 'datum', doe: function () { dialoogDeadline(l); } },
+          { tekst: 'Sjabloon toevoegen…', ico: 'steps', doe: function () { openPalet(moduleIsLeeg(l) ? -1 : 'onder', 'sjablonen'); } },
           { tekst: 'Module dupliceren', ico: 'kopie', doe: function () { dupliceerModule(l); } },
           '-',
           { tekst: 'Module verwijderen…', ico: 'weg', gevaar: true, doe: function () { dialoogVerwijderModule(l); } }
@@ -2260,11 +2261,11 @@
         h('button', { type: 'button', class: 'knop-tekst', disabled: !aantalDicht, onclick: function () { alleBlokken(l, false); } }, ico('uitklap'), 'Alles uitklappen')));
     }
 
+    /* Een lege module begint gewoon met een tekstblok; een sjabloon is een keuze, geen scherm vol kaarten. */
     if (moduleIsLeeg(l) && S.paletNa === null) {
-      ed.append(h('section', { class: 'sjabloon-start', 'aria-label': 'Begin met een sjabloon' },
-        h('h2', null, 'Hoe bouw je deze module op?'),
-        h('p', null, 'Kies een sjabloon: de blokken staan dan klaar in een afwisselende volgorde, met aanwijzingen (✎) die jij vervangt door je eigen tekst, video\'s en afbeeldingen. Of begin leeg in het tekstblok hieronder.'),
-        sjabloonKaarten(-1)));
+      ed.append(h('div', { class: 'sjabloon-hint' },
+        h('span', { text: 'Begin hieronder met typen,' }),
+        h('button', { type: 'button', class: 'knop-tekst', onclick: function () { openPalet(-1, 'sjablonen'); } }, ico('steps'), 'of kies een sjabloon')));
     }
 
     var blokken = h('div', { class: 'blokken', id: 'blokken' });

@@ -452,9 +452,7 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .sj-stap b { display: grid; place-items: center; min-width: 16px; height: 16px; border-radius: 5px; background: var(--accent); color: var(--op-accent); font-size: 10px; font-weight: 700; margin-right: 2px; }
 .sj-blok { display: inline-grid; place-items: center; color: var(--tekst-2); }
 .sj-blok svg { width: 14px; height: 14px; }
-.sjabloon-start { display: grid; gap: 10px; padding: 16px; margin-bottom: 14px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--paneel); }
-.sjabloon-start h2 { font-size: 16px; margin: 0; }
-.sjabloon-start p { margin: 0; font-size: 13px; color: var(--tekst-2); line-height: 1.5; }
+.sjabloon-hint { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 0 0 8px; font-size: 12.5px; color: var(--tekst-2); }
 
 /* klikplaat en tabel in de editor */
 .plaats-vlak { position: relative; border-radius: 8px; overflow: hidden; cursor: crosshair; border: 1px solid var(--lijn); background: var(--vlak); }
@@ -5316,10 +5314,10 @@ function Speler(root, cursus, opts) {
     }
   ];
 
-  /* Een module die alleen een leeg tekstblok heeft (zo begint elke nieuwe
-     module) mag het sjabloon zonder meer vullen. */
+  /* Een module met alleen een tekstblok zonder tekst (zo begint elke nieuwe
+     module en e-learning, soms met een kop) mag het sjabloon zonder meer vullen. */
   function moduleIsLeeg(l) {
-    return !l.blocks.length || (l.blocks.length === 1 && l.blocks[0].t === 'text' && leeg(l.blocks[0].body) && leeg(l.blocks[0].heading));
+    return !l.blocks.length || (l.blocks.length === 1 && l.blocks[0].t === 'text' && leeg(l.blocks[0].body));
   }
 
   /* Zet een sjabloon op een plek in de huidige module; een lege module vult
@@ -5858,6 +5856,7 @@ function Speler(root, cursus, opts) {
       h('div', { class: 'titelrij' }, titelInp, menuKnop('Module: meer opties', function () {
         return [
           { tekst: l.deadline ? 'Afronden vóór wijzigen…' : 'Afronden vóór instellen…', ico: 'datum', doe: function () { dialoogDeadline(l); } },
+          { tekst: 'Sjabloon toevoegen…', ico: 'steps', doe: function () { openPalet(moduleIsLeeg(l) ? -1 : 'onder', 'sjablonen'); } },
           { tekst: 'Module dupliceren', ico: 'kopie', doe: function () { dupliceerModule(l); } },
           '-',
           { tekst: 'Module verwijderen…', ico: 'weg', gevaar: true, doe: function () { dialoogVerwijderModule(l); } }
@@ -5875,11 +5874,11 @@ function Speler(root, cursus, opts) {
         h('button', { type: 'button', class: 'knop-tekst', disabled: !aantalDicht, onclick: function () { alleBlokken(l, false); } }, ico('uitklap'), 'Alles uitklappen')));
     }
 
+    /* Een lege module begint gewoon met een tekstblok; een sjabloon is een keuze, geen scherm vol kaarten. */
     if (moduleIsLeeg(l) && S.paletNa === null) {
-      ed.append(h('section', { class: 'sjabloon-start', 'aria-label': 'Begin met een sjabloon' },
-        h('h2', null, 'Hoe bouw je deze module op?'),
-        h('p', null, 'Kies een sjabloon: de blokken staan dan klaar in een afwisselende volgorde, met aanwijzingen (✎) die jij vervangt door je eigen tekst, video\'s en afbeeldingen. Of begin leeg in het tekstblok hieronder.'),
-        sjabloonKaarten(-1)));
+      ed.append(h('div', { class: 'sjabloon-hint' },
+        h('span', { text: 'Begin hieronder met typen,' }),
+        h('button', { type: 'button', class: 'knop-tekst', onclick: function () { openPalet(-1, 'sjablonen'); } }, ico('steps'), 'of kies een sjabloon')));
     }
 
     var blokken = h('div', { class: 'blokken', id: 'blokken' });
