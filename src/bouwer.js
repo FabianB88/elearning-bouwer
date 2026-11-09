@@ -398,6 +398,7 @@
         else if (b.vimeo) uit.vimeo = String(b.vimeo);
         else if (b.url) uit.url = String(b.url);
         if (!uit.bron) uit.bron = uit.youtube ? 'https://www.youtube.com/watch?v=' + uit.youtube : uit.vimeo ? 'https://vimeo.com/' + uit.vimeo : (uit.url || '');
+        if (b.ondertiteld) uit.ondertiteld = true;
         break;
       case 'embed': uit = { t: t, url: tekstVan(b.url), bron: tekstVan(b.bron || b.url), title: tekstVan(b.title), height: Number(b.height) || 480 }; break;
       case 'tabs': case 'accordion':
@@ -1100,7 +1101,8 @@
             toon();
           } }),
           herkend,
-          V.tekst('Titel', b, 'title', { hint: 'Waar gaat de video over?' })
+          V.tekst('Titel', b, 'title', { hint: 'Waar gaat de video over?' }),
+          V.schakel('Deze video heeft ondertiteling', b, 'ondertiteld')
         ];
       }
     },
@@ -2277,7 +2279,7 @@
     if (l.blocks.length > 1) {
       var aantalDicht = l.blocks.filter(function (b) { return S.open[b._k]; }).length;
       ed.append(h('div', { class: 'blokken-balk' },
-        h('span', { class: 'aantal', text: l.blocks.length + ' blokken' + (aantalDicht ? ', ' + aantalDicht + ' ingeklapt' : '') }),
+        h('span', { class: 'aantal', title: 'Geschatte studietijd: lezen, video\'s en vragen. Meer onder Controleren.', text: l.blocks.length + ' blokken · ' + tijdTekst(studietijd(l)) + (aantalDicht ? ', ' + aantalDicht + ' ingeklapt' : '') }),
         h('button', { type: 'button', class: 'knop-tekst', disabled: aantalDicht === l.blocks.length, onclick: function () { alleBlokken(l, true); } }, ico('inklap'), 'Alles inklappen'),
         h('button', { type: 'button', class: 'knop-tekst', disabled: !aantalDicht, onclick: function () { alleBlokken(l, false); } }, ico('uitklap'), 'Alles uitklappen')));
     }
@@ -3321,6 +3323,80 @@
     return lijst;
   }
 
+  /* ---------------------------------------------------------- tips en studietijd */
+
+  /* Tips zijn geen fouten: ze tellen niet mee in de teller en houden exporteren
+     niet tegen. Ze staan als aparte groep onder Controleren. */
+  var NIET_TEKST = ['t', 'src', 'w', 'h', 'bron', 'url', 'href', 'youtube', 'vimeo', 'start', 'id', 'naar', 'soort', 'kant', 'svg', 'alt', 'height', 'correct', 'pile', 'value', 'ordered', 'multi', 'kop', 'zijkop', 'ondertiteld', 'x', 'y'];
+  function blokTeksten(b) {
+    var uit = [];
+    (function loop(x, sleutel) {
+      if (x == null || sleutel && (sleutel.charAt(0) === '_' || NIET_TEKST.indexOf(sleutel) >= 0)) return;
+      if (typeof x === 'string') { if (!/^data:/.test(x)) uit.push(naarTekst(x)); return; }
+      if (Array.isArray(x)) { x.forEach(function (y) { loop(y, ''); }); return; }
+      if (typeof x === 'object') Object.keys(x).forEach(function (k) { loop(x[k], k); });
+    })(b, '');
+    return uit.filter(Boolean);
+  }
+  function woorden(t) { return (String(t).match(/[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’-]*/g) || []).length; }
+
+  var VRAAG = ['quiz', 'match', 'sort', 'fill', 'open'];
+  var DOEN = VRAAG.concat(['scenario', 'hotspots', 'tabs', 'accordion', 'cards', 'timeline', 'steps', 'embed', 'gallery']);
+
+  /* Studietijd in minuten: lezen op 180 woorden per minuut, plus een vaste
+     tijd per video, vraag en opdracht. Een schatting, geen meting. */
+  function studietijd(l) {
+    var w = 0, video = 0, vragen = 0, rest = 0;
+    l.blocks.forEach(function (b) {
+      w += blokTeksten(b).reduce(function (s, t) { return s + woorden(t); }, 0);
+      if (b.t === 'video' || b.t === 'audio') video++;
+      else if (b.t === 'open') rest += 4;
+      else if (VRAAG.indexOf(b.t) >= 0) vragen++;
+      else if (b.t === 'scenario') rest += 4;
+      else if (b.t === 'embed') rest += 3;
+    });
+    var min = Math.round(w / 180 + video * 5 + vragen * 1.5 + rest);
+    return { min: Math.max(1, min), lezen: Math.round(w / 180), video: video, vragen: vragen };
+  }
+  function tijdTekst(t) { return t.min < 60 ? 'ca. ' + t.min + ' min' : 'ca. ' + Math.floor(t.min / 60) + ' u ' + (t.min % 60 ? t.min % 60 + ' min' : ''); }
+
+  /* Zinnen langer dan B1 aankan: gemiddeld meer dan 20 woorden, of één zin van 30 of meer. */
+  function langeZinnen(tekst) {
+    var zinnen = String(tekst).split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9"'‘“(])/).map(woorden).filter(function (n) { return n >= 3; });
+    if (!zinnen.length) return null;
+    var gem = zinnen.reduce(function (a, b) { return a + b; }, 0) / zinnen.length;
+    var langste = Math.max.apply(null, zinnen);
+    if (gem > 20) return 'Lange zinnen, gemiddeld ' + Math.round(gem) + ' woorden: mogelijk boven B1';
+    if (langste >= 30) return 'Een zin van ' + langste + ' woorden: mogelijk boven B1';
+    return null;
+  }
+
+  function controleTips(c) {
+    var tips = [];
+    c.lessons.forEach(function (l, li) {
+      function tip(b, tekst) { tips.push({ soort: 'tip', lesId: l.id, module: li, k: b ? b._k : null, blok: b ? (TYPES[b.t] || TYPES.text).naam : null, tekst: tekst }); }
+      var t = studietijd(l);
+      if (t.min > 45) tip(null, 'Deze module duurt ' + tijdTekst(t) + '. Overweeg hem te splitsen; 15 tot 30 minuten houdt studenten erbij.');
+      if (l.blocks.length >= 4 && !l.blocks.some(function (b) { return VRAAG.indexOf(b.t) >= 0; })) tip(null, 'Deze module heeft geen enkele vraag. Een vraag helpt studenten checken of ze het snappen.');
+      var reeks = 0, eerste = null, zonderOndertitels = [];
+      l.blocks.forEach(function (b) {
+        if (b.t !== 'continue') {
+          if (DOEN.indexOf(b.t) >= 0 || b.t === 'video') { reeks = 0; eerste = null; }
+          else { if (!reeks) eerste = b; reeks++; if (reeks === 5) tip(eerste, '5 blokken of meer achter elkaar zonder vraag, video of interactie. Wissel af om de aandacht vast te houden.'); }
+        }
+        if (b.t === 'video' && (b.youtube || b.vimeo || b.url) && !b.ondertiteld) zonderOndertitels.push(b);
+        if (b.t === 'audio' && b.url && leeg(b.transcript)) tip(b, 'Geen uitgeschreven tekst: wie niet kan luisteren, mist dit fragment.');
+        if (['text', 'imagetext', 'note', 'tabs', 'accordion', 'timeline', 'cards'].indexOf(b.t) >= 0) {
+          var lz = langeZinnen(blokTeksten(b).join(' '));
+          if (lz) tip(b, lz + '. Knip lange zinnen op.');
+        }
+      });
+      /* Eén tip per module, die naar de eerste video springt. */
+      if (zonderOndertitels.length) tip(zonderOndertitels[0], (zonderOndertitels.length === 1 ? '1 video zonder' : zonderOndertitels.length + " video's zonder") + ' bevestigde ondertiteling. Vink in het videoblok "Deze video heeft ondertiteling" aan, of kies een ondertitelde video.');
+    });
+    return tips;
+  }
+
   var controleTimer = null;
   function planControle() { clearTimeout(controleTimer); controleTimer = setTimeout(werkControleBij, 300); }
   function werkControleBij() {
@@ -3344,6 +3420,7 @@
     var lijst = controlelijst(c);
     var fout = lijst.filter(function (x) { return x.soort === 'fout'; });
     var onaf = lijst.filter(function (x) { return x.soort === 'onaf'; });
+    var tips = controleTips(c);
     dialoog(function (sluit) {
       function regel(x) {
         var waar = x.k ? x.blok : x.lesId ? 'Module' : 'Startpagina';
@@ -3352,7 +3429,7 @@
           if (x.k) gaNaarBlok(x.lesId, x.k);
           else if (x.lesId) kiesModule(x.lesId);
           else { Panelen.zet('links', true); if (matchMedia('(max-width: 760px)').matches) zetTab('structuur'); var t = $('#structuur input'); if (t) t.focus(); }
-        } }, h('span', { class: 'stip ' + (x.soort === 'fout' ? 'rood' : 'open') }), h('span', { class: 'waar', text: waar }), h('span', { class: 'wat', text: x.tekst }));
+        } }, h('span', { class: 'stip ' + (x.soort === 'fout' ? 'rood' : x.soort === 'tip' ? 'tip' : 'open') }), h('span', { class: 'waar', text: waar }), h('span', { class: 'wat', text: x.tekst }));
         return knop;
       }
       function groep(titel, uitleg, items) {
@@ -3381,6 +3458,14 @@
           : h('div', { class: 'herkend' }, 'Alles is af: geen fouten en niets leeg gelaten.'),
         groep(aantal(fout.length, '1 ding klopt niet', 'dingen kloppen niet'), 'Hier loopt een student op vast, of er ontbreekt iets wezenlijks.', fout),
         groep(aantal(onaf.length, '1 ding is nog niet af', 'dingen zijn nog niet af'), 'Lege velden en uitleg die nog ontbreekt.', onaf),
+        groep(aantal(tips.length, '1 tip', 'tips'), 'Geen fouten, maar suggesties voor leesbaarheid (B1), toegankelijkheid en afwisseling. Ze houden exporteren niet tegen.', tips),
+        h('div', { class: 'controle-tijden' }, h('h3', null, 'Geschatte studietijd'),
+          h('p', { class: 'hulp', text: 'Lezen op 180 woorden per minuut, plus ongeveer 5 minuten per video of audiofragment, anderhalve minuut per vraag en 3 tot 4 minuten per open vraag, scenario of ingesloten site.' }),
+          h('div', { class: 'tijden' }, c.lessons.map(function (l, li) {
+            var t = studietijd(l);
+            return h('div', { class: 'tijd-regel' }, h('span', { text: (li + 1) + '. ' + (l.title || 'Module ' + (li + 1)) }), h('strong', { text: tijdTekst(t) }));
+          }), c.lessons.length > 1 ? h('div', { class: 'tijd-regel totaal' }, h('span', { text: 'Totaal' }),
+            h('strong', { text: tijdTekst({ min: c.lessons.reduce(function (s, l) { return s + studietijd(l).min; }, 0) }) })) : null)),
         h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Sluiten'))
       ];
     });
