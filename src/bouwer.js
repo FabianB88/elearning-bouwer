@@ -2637,7 +2637,7 @@
      een account staan ze in je eigen opslag, anders in deze browser. */
   var Bieb = {
     lijst: null,
-    lokaal: function () { try { return JSON.parse(ls('bouwer:bieb') || '[]'); } catch (e) { return []; } },
+    lokaal: function () { try { return JSON.parse(Lokaal.lees('bouwer:bieb') || '[]') || []; } catch (e) { return []; } },
     laad: function () {
       if (Bieb.lijst) return Promise.resolve(Bieb.lijst);
       if (Opslag.modus !== 'account') return Promise.resolve(Bieb.lijst = Bieb.lokaal());
@@ -2646,20 +2646,20 @@
         return Bieb.lijst;
       }).catch(function () { return (Bieb.lijst = Bieb.lokaal()); });
     },
-    bewaarLokaal: function () { ls('bouwer:bieb', JSON.stringify(Bieb.lijst)); },
+    bewaarLokaal: function () { return Lokaal.zet('bouwer:bieb', JSON.stringify(Bieb.lijst)); },
     voegToe: function (x) {
       return Bieb.laad().then(function () {
-        if (JSON.stringify(x).length > (Opslag.modus === 'account' ? 800000 : 300000)) throw new Error('te groot');
+        /* Zonder IndexedDB (alleen localStorage) een strengere grens, zodat de e-learning zelf nog past. */
+        if (JSON.stringify(x).length > (Opslag.modus === 'account' || Lokaal.groot() ? 800000 : 300000)) throw new Error('te groot');
         Bieb.lijst.unshift(x);
         if (Opslag.modus === 'account') return Opslag.col.doc('bieb-' + x.id).set(x);
-        try { Bieb.bewaarLokaal(); } catch (e) { Bieb.lijst.shift(); throw e; }
+        return Bieb.bewaarLokaal().catch(function (e) { Bieb.lijst = Bieb.lijst.filter(function (y) { return y !== x; }); throw e; });
       });
     },
     weg: function (x) {
       Bieb.lijst = Bieb.lijst.filter(function (y) { return y.id !== x.id; });
       if (Opslag.modus === 'account') return Opslag.col.doc('bieb-' + x.id).delete();
-      Bieb.bewaarLokaal();
-      return Promise.resolve();
+      return Bieb.bewaarLokaal();
     }
   };
 
@@ -3288,13 +3288,116 @@
     return [];
   }
 
+  /* E-learnings en Mijn blokken staan in de grote opslag van de browser
+     (IndexedDB, honderden MB) in plaats van in localStorage (zo'n 5 MB). Alles
+     staat ook in het geheugen: lezen gaat direct, schrijven op de achtergrond.
+     Gegevens uit localStorage verhuizen de eerste keer vanzelf; zonder
+     IndexedDB (zeldzaam) blijft localStorage in gebruik. */
+  var Lokaal = (function () {
+    var SLEUTEL = /^bouwer:(c:|index$|bieb$)/;
+    var mem = {}, db = null, start = null;
+
+    function tx(fn) {
+      return new Promise(function (ok, nee) {
+        var t = db.transaction('kv', 'readwrite');
+        var uit = fn(t.objectStore('kv'));
+        t.oncomplete = function () { ok(uit); };
+        t.onerror = function () { nee(t.error); };
+        t.onabort = function () { nee(t.error || new Error('afgebroken')); };
+      });
+    }
+    function lijstSamen(a, b) {
+      var uit = [];
+      (a || []).concat(b || []).forEach(function (x) {
+        var y = uit.find(function (z) { return z.id === x.id; });
+        if (!y) uit.push(x); else if ((x.updatedAt || 0) > (y.updatedAt || 0)) uit[uit.indexOf(y)] = x;
+      });
+      return uit.sort(function (p, q) { return (q.updatedAt || 0) - (p.updatedAt || 0); });
+    }
+    function json(t) { try { return JSON.parse(t || 'null'); } catch (e) { return null; } }
+
+    function begin() {
+      if (start) return start;
+      start = new Promise(function (ok) {
+        var r;
+        try { r = indexedDB.open('elearning-bouwer-opslag', 1); } catch (e) { ok(); return; }
+        r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+        r.onsuccess = function () { db = r.result; ok(); };
+        r.onerror = function () { ok(); };
+        r.onblocked = function () { ok(); };
+      }).then(function () {
+        if (!db) return;
+        return new Promise(function (ok) {
+          var t = db.transaction('kv', 'readonly');
+          var cur = t.objectStore('kv').openCursor();
+          cur.onsuccess = function () { var c = cur.result; if (c) { mem[c.key] = c.value; c.continue(); } };
+          t.oncomplete = function () { ok(); };
+          t.onerror = function () { db = null; mem = {}; ok(); };
+        });
+      }).then(function () {
+        if (!db) return;
+        /* Verhuizen: pas uit localStorage weghalen als het in IndexedDB staat. */
+        var oud = {};
+        try {
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (SLEUTEL.test(k)) oud[k] = localStorage.getItem(k);
+          }
+        } catch (e) { return; }
+        var sleutels = Object.keys(oud);
+        if (!sleutels.length) return;
+        var nieuw = {};
+        sleutels.forEach(function (k) {
+          if (k === 'bouwer:index' || k === 'bouwer:bieb') nieuw[k] = JSON.stringify(lijstSamen(json(mem[k]), json(oud[k])));
+          else if (!(k in mem)) nieuw[k] = oud[k];
+        });
+        return tx(function (st) { Object.keys(nieuw).forEach(function (k) { st.put(nieuw[k], k); }); }).then(function () {
+          Object.keys(nieuw).forEach(function (k) { mem[k] = nieuw[k]; });
+          sleutels.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* laat staan */ } });
+        }).catch(function () { /* blijft in localStorage; lezen valt daarop terug */ });
+      });
+      return start;
+    }
+
+    return {
+      start: begin,
+      groot: function () { return !!db; },
+      lees: function (k) { return k in mem ? mem[k] : ls(k); },
+      zet: function (k, v) {
+        if (!db) { try { ls(k, v); return Promise.resolve(); } catch (e) { return Promise.reject(e); } }
+        var vorige = mem[k];
+        mem[k] = v;
+        return tx(function (st) { st.put(v, k); }).catch(function (e) {
+          if (vorige === undefined) delete mem[k]; else mem[k] = vorige;
+          throw e;
+        });
+      },
+      /* Lezen en schrijven in één transactie, zodat twee tabbladen elkaars
+         wijziging in de lijst niet overschrijven. */
+      pasAan: function (k, fn) {
+        if (!db) { try { ls(k, fn(ls(k))); return Promise.resolve(); } catch (e) { return Promise.reject(e); } }
+        var nieuw;
+        return tx(function (st) {
+          var g = st.get(k);
+          g.onsuccess = function () { nieuw = fn(g.result === undefined ? null : g.result); st.put(nieuw, k); };
+        }).then(function () { mem[k] = nieuw; });
+      },
+      weg: function (k) {
+        delete mem[k];
+        try { ls(k, null); } catch (e) { /* niets */ }
+        if (!db) return Promise.resolve();
+        return tx(function (st) { st.delete(k); }).catch(function () { /* niets */ });
+      }
+    };
+  })();
+
   var Opslag = {
     modus: 'geen',
     col: null,
     beelden: {},
 
     start: function () {
-      return Promise.all([cap('db'), cap('user')]).then(function (r) {
+      return Lokaal.start().then(function () { return Promise.all([cap('db'), cap('user')]); }).then(function (r) {
         var db = r[0], user = r[1];
         if (!db || !user) { Opslag.modus = 'browser'; return; }
         return Promise.resolve(user.id()).then(function (uid) {
@@ -3310,7 +3413,7 @@
     },
 
     browserIndex: function () {
-      try { return JSON.parse(ls('bouwer:index') || '[]'); } catch (e) { return []; }
+      try { return JSON.parse(Lokaal.lees('bouwer:index') || '[]') || []; } catch (e) { return []; }
     },
 
     lijst: function () {
@@ -3325,7 +3428,7 @@
 
     laad: function (id) {
       function uitBrowser() {
-        var ruw = ls('bouwer:c:' + id);
+        var ruw = Lokaal.lees('bouwer:c:' + id);
         if (!ruw) throw new Error('niet gevonden');
         return JSON.parse(ruw);
       }
@@ -3364,8 +3467,8 @@
         l.blocks.forEach(function (b) { beeldObjecten(b).forEach(apart); });
       });
       ontwerpBeelden(kaal.ontwerp).forEach(apart);
-      var browserGelukt = Opslag.bewaarBrowser(zonderSleutels(c));
-      if (Opslag.modus !== 'account') return Promise.resolve(browserGelukt ? 'browser' : 'fout');
+      var browser = Opslag.bewaarBrowser(zonderSleutels(c));
+      if (Opslag.modus !== 'account') return browser.then(function (ok) { return ok ? 'browser' : 'fout'; });
 
       var col = Opslag.col;
       var keten = Promise.resolve();
@@ -3391,24 +3494,28 @@
       return keten.then(function () { return 'account'; });
     },
 
+    /* Geeft een belofte: true als het in de browser staat. */
     bewaarBrowser: function (c) {
-      try {
-        ls('bouwer:c:' + c.id, JSON.stringify(c));
-        var index = Opslag.browserIndex().filter(function (x) { return x.id !== c.id; });
-        index.unshift({ id: c.id, title: c.title, updatedAt: c.updatedAt });
-        ls('bouwer:index', JSON.stringify(index));
-        return true;
-      } catch (e) {
-        return false;
-      }
+      return Lokaal.zet('bouwer:c:' + c.id, JSON.stringify(c)).then(function () {
+        return Lokaal.pasAan('bouwer:index', function (ruw) {
+          var index = [];
+          try { index = JSON.parse(ruw || '[]') || []; } catch (e) { /* opnieuw beginnen */ }
+          index = index.filter(function (x) { return x.id !== c.id; });
+          index.unshift({ id: c.id, title: c.title, updatedAt: c.updatedAt });
+          return JSON.stringify(index);
+        });
+      }).then(function () { return true; }, function () { return false; });
     },
 
     verwijder: function (id) {
-      try {
-        ls('bouwer:c:' + id, null);
-        ls('bouwer:index', JSON.stringify(Opslag.browserIndex().filter(function (x) { return x.id !== id; })));
-      } catch (e) { /* niets */ }
-      if (Opslag.modus !== 'account') return Promise.resolve();
+      var lokaal = Lokaal.weg('bouwer:c:' + id).then(function () {
+        return Lokaal.pasAan('bouwer:index', function (ruw) {
+          var index = [];
+          try { index = JSON.parse(ruw || '[]') || []; } catch (e) { /* leeg */ }
+          return JSON.stringify(index.filter(function (x) { return x.id !== id; }));
+        });
+      }).catch(function () { /* niets */ });
+      if (Opslag.modus !== 'account') return lokaal;
       var col = Opslag.col;
       return Promise.all([
         col.where('cursus', '==', id).get(),
@@ -3444,10 +3551,10 @@
     bezigMetBewaren = Opslag.bewaar(c, vuil, weg).then(function (plek) {
       ls('bouwer:laatste', c.id);
       if (plek === 'fout') zetStatus('Niet opgeslagen: exporteer als bouwbestand', 'fout');
-      else statusOpgeslagen();
+      else { statusOpgeslagen(); Bestand.naBewaren(); }
       if (plek === 'browser' && !Bestand.gekoppeld() && !ls('bouwer:uitleg-browser')) {
         try { ls('bouwer:uitleg-browser', '1'); } catch (e) { /* geen opslag */ }
-        melding('Je werk staat alleen in deze browser. Maak met Opslaan een bestand op je computer; daar komt dan elke 15 minuten een back-up in.', { tekst: 'Opslaan', doe: function () { Bestand.opslaan(); } });
+        melding('Je werk staat alleen in deze browser. Maak met Opslaan een bestand op je computer; de bouwer houdt dat daarna automatisch bij.', { tekst: 'Opslaan', doe: function () { Bestand.opslaan(); } });
       }
       if (!S.lijst.some(function (x) { return x.id === c.id; })) S.lijst.unshift({ id: c.id, title: c.title, updatedAt: c.updatedAt, plek: plek });
       S.lijst.forEach(function (x) { if (x.id === c.id) x.title = c.title; });
@@ -3485,9 +3592,9 @@
 
   function opslagUitleg() {
     var bestand = Bestand.gekoppeld()
-      ? ' Er staat ook een kopie in het bestand ' + Bestand.naam() + ' op je computer (laatst om ' + tijdstip(Bestand.laatst()) + '). Daar komt elke 15 minuten automatisch een back-up in als je iets hebt gewijzigd.'
+      ? ' Er staat ook een kopie in het bestand ' + Bestand.naam() + ' op je computer (laatst om ' + tijdstip(Bestand.laatst()) + '). De bouwer werkt dat bestand een paar seconden na elke wijziging automatisch bij.'
       : Bestand.kan()
-        ? ' Druk op Opslaan om een bestand op je computer te maken. Daarna zet de bouwer daar elke 15 minuten automatisch een back-up in.'
+        ? ' Druk op Opslaan om een bestand op je computer te maken, bijvoorbeeld in OneDrive. Daarna werkt de bouwer dat bestand na elke wijziging automatisch bij.'
         : ' Druk op Opslaan om een bouwbestand te downloaden. Elke 15 minuten krijg je een herinnering als er iets is gewijzigd.';
     if (Opslag.modus === 'account') return 'Je werk wordt automatisch bewaard in je account, alleen zichtbaar voor jou.' + bestand;
     if (Opslag.modus === 'browser') return 'Je werk staat alleen in deze browser. Wis je je browsergegevens, of werk je in een andere browser of op een andere computer, dan zie je het hier niet terug.' + bestand;
@@ -4463,9 +4570,10 @@
   /* ================================================================ bestand op je computer */
 
   /* Opslaan maakt de eerste keer een bouwbestand op je computer en werkt dat
-     daarna bij. Zolang er wijzigingen zijn, komt er elke 15 minuten vanzelf een
-     back-up in. Browsers zonder bestandstoegang (Firefox, Safari, het artifact)
-     downloaden een kopie en krijgen een herinnering in plaats van een back-up. */
+     daarna een paar seconden na elke wijziging vanzelf bij (naBewaren). Het
+     kwartier hieronder is alleen nog het vangnet voor een herinnering.
+     Browsers zonder bestandstoegang (Firefox, Safari, het artifact) downloaden
+     een kopie en krijgen elk kwartier een herinnering. */
   var Bestand = (function () {
     var KWARTIER = 15 * 60 * 1000;
     var B = { handvat: null, cursusId: null, laatst: 0, versie: 0, sinds: Date.now(), herinnerd: 0 };
@@ -4576,7 +4684,7 @@
         }).then(function (nieuw) { koppel(nieuw, c); nieuwGekozen = true; return nieuw; });
       }).then(function (h) {
         return schrijf(h).then(function () {
-          melding(nieuwGekozen ? 'Opgeslagen in ' + h.name + '. Zolang je wijzigt, komt daar elke 15 minuten automatisch een back-up in.' : 'Opgeslagen in ' + h.name + '.');
+          melding(nieuwGekozen ? 'Opgeslagen in ' + h.name + '. Vanaf nu werkt de bouwer dit bestand na elke wijziging automatisch bij.' : 'Opgeslagen in ' + h.name + '.');
         });
       }).catch(function (e) {
         if (e && e.name === 'AbortError') return;
@@ -4599,6 +4707,24 @@
         });
       } else if (Opslag.modus === 'browser') herinner();
     }
+    /* Na elk opslaan in de browser of het account: een paar seconden later ook
+       het gekoppelde bestand bijwerken, als de browser daar toestemming voor
+       heeft. Na een herstart vraagt de browser die toestemming opnieuw; dan
+       één melding met een knop. */
+    var bestandTimer = null, toestemmingGemeld = false;
+    function naBewaren() {
+      if (!gekoppeld() || !S.cursus || S.cursus.voorbeeld) return;
+      clearTimeout(bestandTimer);
+      bestandTimer = setTimeout(function () {
+        if (!gekoppeld() || (S.cursus.updatedAt || 0) <= B.versie) return;
+        toestemming(B.handvat, false).then(function (h) {
+          if (h) return schrijf(h).catch(function () { herinner(); });
+          if (toestemmingGemeld) return;
+          toestemmingGemeld = true;
+          melding('Automatisch opslaan in ' + B.handvat.name + ' wacht op je toestemming.', { tekst: 'Toestaan', doe: function () { toestemmingGemeld = false; opslaan(); } });
+        });
+      }, 3000);
+    }
     function herinner() {
       B.herinnerd = Date.now();
       melding(gekoppeld() ? 'De back-up naar ' + B.handvat.name + ' wacht op je toestemming.' : 'Je werk staat alleen in deze browser. Maak een back-up op je computer.', { tekst: 'Opslaan', doe: function () { opslaan(); } });
@@ -4612,7 +4738,8 @@
       laatst: function () { return B.laatst; },
       wissel: wisselCursus,
       koppel: koppel,
-      opslaan: opslaan
+      opslaan: opslaan,
+      naBewaren: naBewaren
     };
   })();
 
