@@ -44,6 +44,13 @@ function Speler(root, cursus, opts) {
     return staat.modules[id];
   }
 
+  /* Meldt een nagekeken antwoord aan de opslag; een LMS houdt het dan per vraag
+     bij. goed is true of false, of null bij een open vraag die niemand nakijkt. */
+  function meldAntwoord(blok, moduleId, antwoord, juist, goed) {
+    if (!opts.opslag || typeof opts.opslag.antwoord !== 'function') return;
+    try { opts.opslag.antwoord({ blok: blok, module: moduleId, antwoord: antwoord, juist: juist, goed: goed }); } catch (e) { /* LMS weigert */ }
+  }
+
   /* ------------------------------------------------------------ hulp */
 
   function el(tag, klasse, tekst) {
@@ -998,6 +1005,7 @@ function Speler(root, cursus, opts) {
       var keuze = gaten.map(function (g) { return g.inp.value.trim(); });
       var goed = toonUitslag(keuze);
       ms.antwoorden[id] = { keuze: keuze, goed: goed };
+      meldAntwoord(blok, moduleId, keuze.join(' | '), gaten.map(function (g) { return g.goed[0]; }).join(' | '), goed);
       bewaar();
       opWijziging();
     });
@@ -1263,6 +1271,9 @@ function Speler(root, cursus, opts) {
       nagekeken = true;
       var goed = toonUitslag(gekozen);
       ms.antwoorden[id] = { keuze: gekozen.slice(), goed: goed };
+      meldAntwoord(blok, moduleId,
+        gekozen.map(function (i) { return blok.options[i].text; }).join(' | '),
+        blok.options.filter(function (o) { return o.correct; }).map(function (o) { return o.text; }).join(' | '), goed);
       bewaar();
       opWijziging();
     });
@@ -1432,6 +1443,7 @@ function Speler(root, cursus, opts) {
       var antwoord = keuze.slice();
       var goed = toonUitslag(antwoord);
       ms.antwoorden[id] = { keuze: antwoord, goed: goed };
+      if (cfg.blok) meldAntwoord(cfg.blok, moduleId, cfg.beschrijf(antwoord), cfg.juist, goed);
       bewaar();
       opWijziging();
     });
@@ -1501,6 +1513,9 @@ function Speler(root, cursus, opts) {
         var o = opties.find(function (x) { return x.waarde === String(r.juist); });
         return 'Juist is ' + o.knop + ': ' + o.tekst;
       },
+      blok: blok,
+      beschrijf: function (k) { return blok.pairs.map(function (p, i) { return p.left + ' = ' + (k[i] !== '' && blok.pairs[+k[i]] ? blok.pairs[+k[i]].right : ''); }).join(' | '); },
+      juist: blok.pairs.map(function (p) { return p.left + ' = ' + p.right; }).join(' | '),
       allesGoed: 'Allemaal goed gekoppeld.',
       deelsGoed: 'Bij de rode staat de juiste omschrijving.',
       feedback: blok.feedback,
@@ -1522,6 +1537,9 @@ function Speler(root, cursus, opts) {
       }),
       opties: blok.piles.map(function (p, j) { return { knop: p, waarde: String(j), tekst: p }; }),
       correctie: function (r) { return 'Hoort bij: ' + blok.piles[r.juist]; },
+      blok: blok,
+      beschrijf: function (k) { return blok.items.map(function (it, n) { return it.text + ' = ' + (k[n] !== '' && blok.piles[+k[n]] !== undefined ? blok.piles[+k[n]] : ''); }).join(' | '); },
+      juist: blok.items.map(function (it) { return it.text + ' = ' + blok.piles[it.pile]; }).join(' | '),
       allesGoed: 'Alles in de juiste categorie.',
       deelsGoed: 'Bij de rode staat waar ze wel horen.',
       feedback: blok.feedback,

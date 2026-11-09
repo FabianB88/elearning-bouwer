@@ -3050,8 +3050,35 @@
     }
     window.addEventListener('pagehide', sluit);
     window.addEventListener('beforeunload', sluit);
+    /* Elk nagekeken antwoord als interactie (cmi.interactions), zodat het LMS per
+       vraag laat zien wat studenten antwoorden en hoeveel het goed hebben. De id
+       zegt welke vraag het is: module, vraagnummer en het begin van de vraag. */
+    var VRAAGSOORTEN = ['quiz', 'match', 'sort', 'fill', 'open'];
+    function kort(t, n) { t = String(t == null ? '' : t); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+    function vlak(html) { return String(html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim(); }
+    function klok() { var d = new Date(); return [d.getHours(), d.getMinutes(), d.getSeconds()].map(function (x) { return ('0' + x).slice(-2); }).join(':'); }
+    function antwoord(a) {
+      if (!actief || afgesloten) return;
+      var mi = -1;
+      cursus.lessons.forEach(function (l, i) { if (l.id === a.module) mi = i; });
+      var les = cursus.lessons[mi];
+      var nr = les ? les.blocks.filter(function (b) { return VRAAGSOORTEN.indexOf(b.t) >= 0; }).indexOf(a.blok) + 1 : 0;
+      var vraag = vlak(a.blok.question) || vlak(a.blok.text);
+      var slug = vraag.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+      var n = Number(lees('cmi.interactions._count')) || 0;
+      var p = 'cmi.interactions.' + n + '.';
+      zet(p + 'id', 'M' + (mi + 1) + '_V' + (nr || 0) + (slug ? '_' + slug : ''));
+      zet(p + 'type', 'fill-in');
+      zet(p + 'time', klok());
+      zet(p + 'weighting', a.goed === null ? 0 : 1);
+      zet(p + 'student_response', kort(a.antwoord, 255));
+      if (a.juist) zet(p + 'correct_responses.0.pattern', kort(a.juist, 255));
+      zet(p + 'result', a.goed === null ? 'neutral' : (a.goed ? 'correct' : 'wrong'));
+      try { api.LMSCommit(''); } catch (e) { /* niets */ }
+    }
     return {
       actief: actief,
+      antwoord: antwoord,
       lees: function () { return lees('cmi.suspend_data'); },
       schrijf: function (json, staat, module) {
         if (!actief || afgesloten) return;
