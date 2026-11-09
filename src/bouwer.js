@@ -2003,7 +2003,7 @@
         h('button', { type: 'button', class: 'knop klein', onclick: dupliceerCursus }, 'Kopie maken'),
         verwijderKnop('E-learning verwijderen', verwijderCursus)),
       h('div', { class: 'knoprij', style: 'margin-top:12px' },
-        h('button', { type: 'button', class: 'knop-tekst', onclick: function () { Weergave.dialoog(); } }, 'Weergave van de bouwer: thema, kleur en grootte')));
+        h('button', { type: 'button', class: 'knop-tekst', onclick: function () { Weergave.dialoog(); } }, 'Instellingen: weergave, back-up en terugzetten')));
 
     baan.append(meta, vormgeving, modules, beheer);
     renderRail();
@@ -4266,6 +4266,7 @@
       } else {
         data = JSON.parse(tekst);
       }
+      if (data && data.soort === BACKUP) { dialoogBackupTerug(data); return; }
       if (!data || !Array.isArray(data.lessons)) throw new Error('Dit bestand bevat geen e-learning.');
       var c = normaliseerCursus(data, { nieuwId: true });
       c.updatedAt = Date.now();
@@ -4281,6 +4282,153 @@
     }).catch(function (e) {
       melding(e && e.message && e.message.length < 120 ? e.message : 'Dit bestand kon niet worden geopend.');
     });
+  }
+
+  /* ================================================================ back-up */
+
+  /* Eén bestand met al je e-learnings en Mijn blokken: terug te zetten als de
+     browser is gewist, of om naar een andere computer te verhuizen. */
+  var BACKUP = 'elearning-bouwer-backup';
+
+  function datumTekst(t) {
+    return t ? new Date(t).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + tijdstip(t) : 'onbekend';
+  }
+
+  function maakBackup() {
+    melding('Back-up wordt gemaakt…');
+    return bewaarEerst().then(function () { return Opslag.lijst(); }).then(function (lijst) {
+      var cursussen = [];
+      return lijst.reduce(function (p, x) {
+        return p.then(function () {
+          return Opslag.laad(x.id).then(function (c) { if (c && !c.voorbeeld) cursussen.push(c); }).catch(function () { /* overslaan */ });
+        });
+      }, Promise.resolve()).then(function () { return Bieb.laad(); }).then(function (bieb) {
+        bieb = bieb || [];
+        if (!cursussen.length && !bieb.length) { melding('Er is nog niets om te back-uppen: in deze browser staan nog geen eigen e-learnings.'); return; }
+        var data = { soort: BACKUP, versie: 1, gemaakt: new Date().toISOString(), cursussen: cursussen, bieb: bieb };
+        return bewaarBestand('e-learning-bouwer-back-up-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(data)).then(function () {
+          try { ls('bouwer:laatste-backup', String(Date.now())); } catch (e) { /* niet erg */ }
+          melding('Back-up gemaakt: ' + aantal(cursussen.length, '1 e-learning', 'e-learnings') + (bieb.length ? ' en ' + aantal(bieb.length, '1 blok', 'blokken') + ' uit Mijn blokken' : '') + '. Bewaar het bestand op een veilige plek.');
+        });
+      });
+    }).catch(function () { melding('De back-up kon niet worden gemaakt.'); });
+  }
+
+  /* Een back-up kiezen; een los bouwbestand mag ook, dat opent als e-learning. */
+  function kiesBackup() {
+    var kies = h('input', { type: 'file', accept: '.json,application/json', hidden: true });
+    kies.addEventListener('change', function () {
+      var f = kies.files[0];
+      kies.remove();
+      if (!f) return;
+      f.text().then(function (tekst) {
+        var data = JSON.parse(tekst);
+        if (data && data.soort === BACKUP) return dialoogBackupTerug(data);
+        if (data && Array.isArray(data.lessons)) return openBestand(f);
+        melding('Dit bestand is geen back-up of bouwbestand van de bouwer.');
+      }).catch(function () { melding('Dit bestand kon niet worden gelezen.'); });
+    });
+    document.body.append(kies);
+    kies.click();
+  }
+
+  function dialoogBackupTerug(data) {
+    var cursussen = (data.cursussen || []).filter(function (c) { return c && Array.isArray(c.lessons); });
+    var bieb = (Array.isArray(data.bieb) ? data.bieb : []).filter(function (x) { return x && x.blok && x.id; });
+    var bestaand = {};
+    S.lijst.forEach(function (x) { bestaand[x.id] = x; });
+    var gekozen = cursussen.map(function () { return true; });
+    var vervang = false, biebAan = bieb.length > 0;
+    dialoog(function (sluit) {
+      var knop = h('button', { type: 'button', class: 'knop primair' }, 'Terugzetten');
+      function werk() {
+        var n = gekozen.filter(Boolean).length;
+        knop.disabled = !n && !biebAan;
+        knop.textContent = n ? 'Terugzetten (' + aantal(n, '1 e-learning', 'e-learnings') + ')' : 'Terugzetten';
+      }
+      var dubbel = cursussen.filter(function (c) { return bestaand[c.id]; }).length;
+      var regels = cursussen.map(function (c, i) {
+        var id = veldId();
+        var v = h('input', { type: 'checkbox', id: id, checked: true });
+        v.addEventListener('change', function () { gekozen[i] = v.checked; werk(); });
+        var b = bestaand[c.id];
+        return h('label', { for: id, class: 'module-kies-regel' }, v,
+          h('span', null, h('strong', { text: c.title || 'Naamloze e-learning' }),
+            h('small', { text: aantal(c.lessons.length, '1 module', 'modules') + ' · in de back-up: ' + datumTekst(c.updatedAt) + (b ? ' · staat er nu ook (' + datumTekst(b.updatedAt) + ')' : '') })));
+      });
+      function radio(waarde, tekst) {
+        var id = veldId();
+        var rd = h('input', { type: 'radio', name: 'backup-dubbel', id: id, checked: vervang === waarde });
+        rd.addEventListener('change', function () { if (rd.checked) vervang = waarde; });
+        return h('label', { class: 'schakel', for: id }, rd, tekst);
+      }
+      var biebVak = null;
+      if (bieb.length) {
+        var bid = veldId();
+        var bv = h('input', { type: 'checkbox', id: bid, checked: true });
+        bv.addEventListener('change', function () { biebAan = bv.checked; werk(); });
+        biebVak = h('label', { class: 'schakel', for: bid }, bv, 'Ook Mijn blokken terugzetten (' + bieb.length + '); blokken die er al staan blijven staan');
+      }
+      knop.addEventListener('click', function () {
+        sluit();
+        zetTerug(cursussen.filter(function (c, i) { return gekozen[i]; }), vervang, biebAan ? bieb : []);
+      });
+      werk();
+      return [
+        h('h2', null, 'Back-up terugzetten'),
+        h('p', null, 'Back-up van ' + datumTekst(Date.parse(data.gemaakt)) + '. Vink aan wat je terug wilt zetten.'),
+        h('div', { class: 'module-kies' }, regels.length ? regels : h('p', { class: 'hulp', text: 'In deze back-up staan geen e-learnings.' })),
+        dubbel ? h('div', { class: 'velden' },
+          h('span', { class: 'veldlabel', text: aantal(dubbel, '1 e-learning staat', 'e-learnings staan') + ' hier al. Wat doe je daarmee?' }),
+          radio(false, 'Allebei houden: de versie uit de back-up komt erbij als kopie'),
+          radio(true, 'Vervangen door de versie uit de back-up')) : null,
+        biebVak,
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), knop)
+      ];
+    });
+  }
+
+  function zetTerug(lijst, vervang, bieb) {
+    var bekend = S.lijst.map(function (x) { return x.id; });
+    var huidig = S.cursus && S.cursus.id;
+    var opnieuw = null, eerste = null, n = 0;
+    var keten = bewaarEerst();
+    lijst.forEach(function (ruw) {
+      keten = keten.then(function () {
+        var bestaat = bekend.indexOf(ruw.id) >= 0;
+        var c;
+        if (bestaat && !vervang) {
+          c = normaliseerCursus(ruw, { nieuwId: true });
+          c.title = (c.title || 'E-learning') + ' (uit back-up)';
+        } else c = normaliseerCursus(ruw);
+        c.voorbeeld = false;
+        c.updatedAt = Date.now();
+        if (c.id === huidig) opnieuw = c;
+        if (!eerste) eerste = c.id;
+        /* Vervangen: eerst het oude weg, zodat er geen losse modules achterblijven. */
+        return (bestaat && vervang ? Opslag.verwijder(c.id) : Promise.resolve()).then(function () {
+          return Opslag.bewaar(c, { '*': 1 }, []);
+        }).then(function (plek) { if (plek !== 'fout') n++; });
+      });
+    });
+    var nb = 0;
+    keten = keten.then(function () {
+      if (!bieb.length) return;
+      return Bieb.laad().then(function (al) {
+        var ids = al.map(function (x) { return x.id; });
+        return bieb.filter(function (x) { return ids.indexOf(x.id) < 0; }).reduce(function (p, x) {
+          return p.then(function () { return Bieb.voegToe(x).then(function () { nb++; }).catch(function () { /* te groot of vol */ }); });
+        }, Promise.resolve());
+      });
+    });
+    return keten.then(function () { return Opslag.lijst(); }).then(function (nieuw) {
+      S.lijst = nieuw;
+      if (opnieuw) wissel(opnieuw);
+      renderKeuze();
+      renderStructuur();
+      var tekst = (n ? aantal(n, '1 e-learning', 'e-learnings') + ' teruggezet' : 'Geen e-learnings teruggezet') + (nb ? ', en ' + aantal(nb, '1 blok', 'blokken') + ' in Mijn blokken' : '') + '.';
+      melding(tekst, eerste && !opnieuw ? { tekst: 'Openen', doe: function () { openCursus(eerste); } } : undefined);
+    }).catch(function () { melding('Terugzetten lukte niet helemaal. Probeer het nog eens.'); });
   }
 
   /* ================================================================ Claude */
@@ -5090,15 +5238,26 @@
         geavanceerd.open = !!(w.accent || w.grootte !== '1' || w.letter !== 'standaard');
 
         return [
-          h('h2', null, 'Weergave van de bouwer'),
+          h('h2', null, 'Instellingen'),
+          h('h3', { class: 'instelling-kop' }, 'Weergave van de bouwer'),
           h('p', null, 'Alleen voor jou, in deze browser. De vormgeving van je e-learning stel je in bij Vormgeving.'),
           h('div', { class: 'sjablonen weergave-themas', role: 'group', 'aria-label': 'Thema van de bouwer' }, themaKnoppen),
           geavanceerd,
+          h('section', { class: 'instelling-sectie' },
+            h('h3', { class: 'instelling-kop' }, 'Back-up en bestanden'),
+            h('p', null, 'Een back-up is één bestand met al je e-learnings en Mijn blokken. Bewaar hem op een veilige plek. Is je browser gewist, of werk je op een andere computer, dan zet je alles ermee terug.'),
+            h('div', { class: 'knoprij' },
+              h('button', { type: 'button', class: 'knop primair', onclick: function () { sluit(); maakBackup(); } }, ico('schijf'), 'Back-up van alles downloaden'),
+              h('button', { type: 'button', class: 'knop', onclick: function () { sluit(); kiesBackup(); } }, 'Back-up terugzetten…')),
+            h('p', { class: 'hulp', text: (function () { var t = Number(ls('bouwer:laatste-backup')) || 0; return t ? 'Laatste back-up: ' + datumTekst(t) + '.' : 'Je hebt in deze browser nog geen back-up gemaakt.'; })() }),
+            h('div', { class: 'knoprij' },
+              h('button', { type: 'button', class: 'knop-tekst', onclick: function () { sluit(); $('#knop-openen').click(); } }, 'Een e-learning van een collega openen (.json)'),
+              h('span', { class: 'hulp', text: 'Die komt erbij als nieuwe e-learning; er wordt niets overschreven.' }))),
           h('div', { class: 'voet' },
             h('button', { type: 'button', class: 'knop', onclick: function () {
               w = { thema: 'auto', accent: '', grootte: '1', letter: 'standaard' };
               bewaarW(); pasToe(); sluit(); dialoogWeergave();
-            } }, 'Alles terugzetten'),
+            } }, 'Weergave terugzetten'),
             h('button', { type: 'button', class: 'knop primair', onclick: sluit }, 'Klaar'))
         ];
       });
