@@ -276,6 +276,17 @@ function Speler(root, cursus, opts) {
 
     if (!cursus.lessons.length) lijst.appendChild(el('p', 'intro', 'Deze e-learning heeft nog geen modules.'));
 
+    if (heeftOpenVragen()) {
+      var open = verzamelOpen();
+      var regel2 = el('div', 'mijn-antwoorden-regel');
+      regel2.appendChild(el('span', null, 'Mijn antwoorden: ' + open.filter(function (x) { return x.tekst; }).length + ' van ' + open.length + ' open vragen beantwoord'));
+      var bekijk = el('button', 'knop-klein stil', 'Bekijken en downloaden');
+      bekijk.type = 'button';
+      bekijk.addEventListener('click', toonMijnAntwoorden);
+      regel2.appendChild(bekijk);
+      lijst.appendChild(regel2);
+    }
+
     root.appendChild(lijst);
     naarBoven();
     if (opts.opModule) opts.opModule(null);
@@ -671,6 +682,10 @@ function Speler(root, cursus, opts) {
         if (!/\[[^\]]+\]/.test(blok.text || '')) return null;
         return tekenInvul(blok, moduleId, segIndex, blokIndex, opWijziging);
 
+      case 'open':
+        if (!telbaar(blok)) return null;
+        return tekenOpen(blok, moduleId, segIndex, blokIndex, opWijziging);
+
       case 'scenario':
         if (!(blok.scenes || []).length) return null;
         return tekenScenario(blok, moduleId, segIndex, blokIndex, opWijziging);
@@ -691,7 +706,7 @@ function Speler(root, cursus, opts) {
   }
 
   /* Blokken die beantwoord moeten zijn voordat de doorgaan-knop opengaat. */
-  var VRAAGTYPEN = ['quiz', 'match', 'sort', 'fill', 'scenario'];
+  var VRAAGTYPEN = ['quiz', 'match', 'sort', 'fill', 'scenario', 'open'];
   /* Vragen die goed of fout kunnen zijn en meetellen voor een score. Een
      scenario hoort er niet bij: dat moet je alleen doorlopen. */
   var SCOREBAAR = ['quiz', 'match', 'sort', 'fill'];
@@ -702,6 +717,7 @@ function Speler(root, cursus, opts) {
     if (b.t === 'sort') return (b.items || []).length > 0 && (b.piles || []).length > 0;
     if (b.t === 'fill') return /\[[^\]]+\]/.test(b.text || '');
     if (b.t === 'scenario') return (b.scenes || []).length > 0;
+    if (b.t === 'open') return !!String(b.question || '').replace(/<[^>]+>/g, '').trim();
     return false;
   }
 
@@ -1483,6 +1499,200 @@ function Speler(root, cursus, opts) {
     return kaart;
   }
 
+  /* -------------------------------------------- open vraag */
+
+  /* De student schrijft een eigen antwoord. Niemand kijkt het na: na het
+     bewaren ziet de student het voorbeeldantwoord of de aandachtspunten van de
+     docent, en het antwoord staat onder Mijn antwoorden om te downloaden. Een
+     kopie in de browser vangt een LMS op dat lange antwoorden niet bewaart. */
+  function openReserve(id) { return 'elearning-open:' + cursus.id + ':' + id; }
+  function openTekst(id, a) {
+    if (a && typeof a.tekst === 'string') return a.tekst;
+    try { return localStorage.getItem(openReserve(id)) || ''; } catch (e) { return ''; }
+  }
+
+  function tekenOpen(blok, moduleId, segIndex, blokIndex, opWijziging) {
+    var id = vraagId(moduleId, segIndex, blokIndex);
+    var ms = moduleStaat(moduleId);
+    var bewaard = ms.antwoorden[id];
+
+    var kaart = el('div', 'vraag open-vraag');
+    kaart.appendChild(el('div', 'label', 'Open vraag'));
+    kaart.appendChild(html('div', 'stelling', blok.question));
+    kaart.appendChild(el('p', 'open-uitleg', 'Hier is geen goed of fout: je antwoord wordt niet nagekeken. Je vindt het terug onder Mijn antwoorden, om te bewaren of in te leveren.'));
+    var vak = document.createElement('textarea');
+    vak.className = 'open-vak';
+    vak.rows = 5;
+    vak.maxLength = 3000;
+    vak.placeholder = blok.hint || 'Schrijf hier je antwoord…';
+    vak.setAttribute('aria-label', 'Jouw antwoord');
+    kaart.appendChild(vak);
+
+    var acties = el('div', 'vraag-acties');
+    var bewaarKnop = el('button', 'knop-klein', 'Antwoord bewaren');
+    bewaarKnop.type = 'button';
+    bewaarKnop.disabled = true;
+    var wijzigKnop = el('button', 'knop-klein stil', 'Aanpassen');
+    wijzigKnop.type = 'button';
+    wijzigKnop.style.display = 'none';
+    acties.appendChild(bewaarKnop);
+    acties.appendChild(wijzigKnop);
+    kaart.appendChild(acties);
+    var uitslagVak = el('div');
+    kaart.appendChild(uitslagVak);
+
+    vak.addEventListener('input', function () { bewaarKnop.disabled = !vak.value.trim(); });
+
+    function toonBewaard(tekst) {
+      vak.value = tekst;
+      vak.readOnly = true;
+      bewaarKnop.style.display = 'none';
+      wijzigKnop.style.display = '';
+      uitslagVak.innerHTML = '';
+      var u = el('div', 'uitslag open');
+      u.appendChild(el('strong', null, 'Bewaard. '));
+      u.appendChild(document.createTextNode(blok.feedback ? 'Vergelijk je antwoord met wat je docent erover zegt:' : 'Je vindt het terug onder Mijn antwoorden.'));
+      if (blok.feedback) u.appendChild(el('div', 'open-voorbeeld', blok.feedback));
+      var naar = el('button', 'knop-tekst', 'Mijn antwoorden bekijken');
+      naar.type = 'button';
+      naar.addEventListener('click', toonMijnAntwoorden);
+      u.appendChild(naar);
+      uitslagVak.appendChild(u);
+    }
+
+    bewaarKnop.addEventListener('click', function () {
+      var tekst = vak.value.trim();
+      ms.antwoorden[id] = { tekst: tekst, open: true };
+      try { localStorage.setItem(openReserve(id), tekst); } catch (e) { /* geen opslag */ }
+      bewaar();
+      toonBewaard(tekst);
+      meldAntwoord(blok, moduleId, tekst, '', null);
+      opWijziging();
+    });
+
+    wijzigKnop.addEventListener('click', function () {
+      vak.readOnly = false;
+      vak.focus();
+      wijzigKnop.style.display = 'none';
+      bewaarKnop.style.display = '';
+      bewaarKnop.disabled = !vak.value.trim();
+      uitslagVak.innerHTML = '';
+    });
+
+    if (bewaard) toonBewaard(openTekst(id, bewaard));
+
+    kaart.dataset.vraag = id;
+    return kaart;
+  }
+
+  /* -------------------------------------------- mijn antwoorden */
+
+  function heeftOpenVragen() {
+    return cursus.lessons.some(function (l) { return l.blocks.some(function (b) { return b.t === 'open' && telbaar(b); }); });
+  }
+
+  function verzamelOpen() {
+    var uit = [];
+    cursus.lessons.forEach(function (les, li) {
+      var ms = moduleStaat(les.id);
+      segmentenVan(les).forEach(function (seg, s) {
+        seg.forEach(function (x, i) {
+          if (x.blok.t !== 'open' || !telbaar(x.blok)) return;
+          var id = vraagId(les.id, s, i);
+          uit.push({ module: les.title || 'Module ' + (li + 1), nr: li + 1, vraag: x.blok.question, tekst: ms.antwoorden[id] ? openTekst(id, ms.antwoorden[id]) : '' });
+        });
+      });
+    });
+    return uit;
+  }
+
+  /* DOMParser voert niets uit, ook geen onerror van een afbeelding. */
+  function vlakTekst(h) { return (new DOMParser().parseFromString(h || '', 'text/html').body.textContent || '').trim(); }
+  function escHtml(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function toonMijnAntwoorden() {
+    var oud = root.querySelector('.antwoorden-achter');
+    if (oud) oud.remove();
+    var lijst = verzamelOpen();
+    var achter = el('div', 'antwoorden-achter');
+    var vak = el('div', 'antwoorden');
+    vak.setAttribute('role', 'dialog');
+    vak.setAttribute('aria-modal', 'true');
+    vak.setAttribute('aria-label', 'Mijn antwoorden');
+    vak.appendChild(el('h2', null, 'Mijn antwoorden'));
+    var klaar = lijst.filter(function (x) { return x.tekst; }).length;
+    vak.appendChild(el('p', 'antwoorden-uitleg', 'Je antwoorden op de open vragen van ' + (cursus.title || 'deze e-learning') + ' (' + klaar + ' van ' + lijst.length + '). Ze worden niet nagekeken. Bewaar ze, of lever ze in zoals je docent vraagt.'));
+
+    var naamId = 'naam-' + Math.random().toString(36).slice(2, 8);
+    var naamRij = el('div', 'antwoorden-naam');
+    var lbl = el('label', null, 'Je naam (komt bovenaan het document)');
+    lbl.setAttribute('for', naamId);
+    var naam = document.createElement('input');
+    naam.type = 'text';
+    naam.id = naamId;
+    naam.value = staat.naam || '';
+    naam.addEventListener('change', function () { staat.naam = naam.value.trim(); bewaar(); });
+    naamRij.appendChild(lbl);
+    naamRij.appendChild(naam);
+    vak.appendChild(naamRij);
+
+    var vorige = null;
+    lijst.forEach(function (x) {
+      if (x.module !== vorige) { vak.appendChild(el('h3', null, 'Module ' + x.nr + ': ' + x.module)); vorige = x.module; }
+      var item = el('div', 'antwoord-item');
+      item.appendChild(html('div', 'antwoord-vraag', x.vraag));
+      item.appendChild(el('div', 'antwoord-tekst' + (x.tekst ? '' : ' leeg'), x.tekst || 'Nog niet beantwoord'));
+      vak.appendChild(item);
+    });
+
+    function document_() {
+      var datum = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+      var delen = ['<h1>Mijn antwoorden</h1><p>' + escHtml(cursus.title || '') + (naam.value.trim() ? ' &middot; ' + escHtml(naam.value.trim()) : '') + ' &middot; ' + datum + '</p>'];
+      var v = null;
+      lijst.forEach(function (x) {
+        if (x.module !== v) { delen.push('<h2>Module ' + x.nr + ': ' + escHtml(x.module) + '</h2>'); v = x.module; }
+        delen.push('<p><b>' + escHtml(vlakTekst(x.vraag)) + '</b></p><p>' + (x.tekst ? escHtml(x.tekst).replace(/\n/g, '<br>') : '<i>Nog niet beantwoord</i>') + '</p>');
+      });
+      return '<html><head><meta charset="utf-8"><title>Mijn antwoorden</title><style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.5}h1{font-size:18pt}h2{font-size:13pt;margin-top:18pt}</style></head><body>' + delen.join('') + '</body></html>';
+    }
+
+    var knoppen = el('div', 'knoppen');
+    var print = el('button', 'knop-klein', 'Afdrukken of opslaan als PDF');
+    print.type = 'button';
+    print.addEventListener('click', function () {
+      root.classList.add('print-antwoorden');
+      var weg = function () { root.classList.remove('print-antwoorden'); window.removeEventListener('afterprint', weg); };
+      window.addEventListener('afterprint', weg);
+      window.print();
+      setTimeout(weg, 1000);
+    });
+    var word = el('button', 'knop-klein stil', 'Downloaden voor Word');
+    word.type = 'button';
+    word.addEventListener('click', function () {
+      var blob = new Blob(['\ufeff' + document_()], { type: 'application/msword' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mijn-antwoorden-' + String(cursus.title || 'e-learning').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '.doc';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    });
+    var sluit = el('button', 'knop-klein stil', 'Sluiten');
+    sluit.type = 'button';
+    function dicht() { achter.remove(); document.removeEventListener('keydown', toets); }
+    function toets(e) { if (e.key === 'Escape') dicht(); }
+    sluit.addEventListener('click', dicht);
+    achter.addEventListener('click', function (e) { if (e.target === achter) dicht(); });
+    document.addEventListener('keydown', toets);
+    knoppen.appendChild(print);
+    knoppen.appendChild(word);
+    knoppen.appendChild(sluit);
+    vak.appendChild(knoppen);
+    achter.appendChild(vak);
+    root.appendChild(achter);
+    sluit.focus();
+  }
+
   /* -------------------------------------------- koppelvraag */
 
   function tekenKoppel(blok, moduleId, segIndex, blokIndex, opWijziging) {
@@ -1754,6 +1964,12 @@ function Speler(root, cursus, opts) {
         o.type = 'button';
         o.addEventListener('click', toonStart);
         knoppen.appendChild(o);
+        if (les.blocks.some(function (b) { return b.t === 'open' && telbaar(b); })) {
+          var ma = el('button', 'knop-klein stil', 'Mijn antwoorden');
+          ma.type = 'button';
+          ma.addEventListener('click', toonMijnAntwoorden);
+          knoppen.appendChild(ma);
+        }
         slot.appendChild(knoppen);
         var nogOpen = el('div', 'doorgaan');
         var nogHint = el('div', 'hint', '');

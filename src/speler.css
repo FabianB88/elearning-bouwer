@@ -1248,3 +1248,48 @@ hr.scheiding { margin: 2.75rem auto; width: 4rem; border: 0; border-top: 2px sol
   font-family: var(--go-font-kop);
   font-weight: var(--go-kop-gewicht);
 }
+
+/* ============================ open vraag en mijn antwoorden ============================ */
+
+.open-uitleg { margin: 0 0 0.8rem; font-size: 0.85rem; line-height: 1.5; color: var(--go-tekst-2); }
+.open-vak {
+  display: block; width: 100%; box-sizing: border-box; min-height: 7.5rem; resize: vertical;
+  padding: 0.75rem 0.9rem; border: 1px solid var(--go-rand); border-radius: var(--r-knop);
+  background: var(--go-kaart); color: var(--go-tekst); font: inherit; font-size: 0.98rem; line-height: 1.6;
+}
+.open-vak:focus { outline: 2px solid var(--go-groen); outline-offset: 1px; border-color: var(--go-groen); }
+.open-vak[readonly] { background: var(--go-vlak); }
+.uitslag.open { background: var(--go-groen-licht); color: var(--go-tekst); }
+.open-voorbeeld { margin: 0.6rem 0 0.4rem; padding-left: 0.8rem; border-left: 3px solid var(--go-groen); white-space: pre-line; }
+.cursus .knop-tekst {
+  display: inline-block; margin-top: 0.4rem; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 0.85rem; font-weight: 600; color: var(--go-accent-tekst, var(--go-groen-donker)); text-decoration: underline; text-underline-offset: 2px;
+}
+.mijn-antwoorden-regel {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+  margin-top: 1.25rem; padding: 0.9rem var(--binnen); border: 1px dashed var(--go-rand); border-radius: var(--r-kaart);
+  font-size: 0.9rem; color: var(--go-tekst-2);
+}
+.antwoorden-achter { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 1rem; background: rgba(0, 0, 0, 0.45); }
+.antwoorden {
+  width: min(44rem, 100%); max-height: calc(100% - 2rem); overflow: auto; box-sizing: border-box;
+  padding: 1.5rem var(--binnen); border-radius: var(--r-kaart); background: var(--go-kaart); color: var(--go-tekst);
+}
+.antwoorden h2 { margin: 0 0 0.4rem; font-size: 1.3rem; }
+.antwoorden h3 { margin: 1.4rem 0 0.5rem; font-size: 1rem; }
+.antwoorden-uitleg { margin: 0 0 1rem; font-size: 0.9rem; line-height: 1.5; color: var(--go-tekst-2); }
+.antwoorden-naam { display: grid; gap: 0.3rem; font-size: 0.85rem; color: var(--go-tekst-2); }
+.antwoorden-naam input { padding: 0.55rem 0.7rem; border: 1px solid var(--go-rand); border-radius: var(--r-knop); background: var(--go-kaart); color: var(--go-tekst); font: inherit; }
+.antwoord-item { padding: 0.75rem 0; border-top: 1px solid var(--go-rand-zacht); }
+.antwoord-vraag { font-weight: 600; font-size: 0.92rem; }
+.antwoord-vraag p { margin: 0; }
+.antwoord-tekst { margin-top: 0.35rem; font-size: 0.95rem; line-height: 1.6; white-space: pre-line; }
+.antwoord-tekst.leeg { color: var(--go-gedimd); font-style: italic; }
+.antwoorden .knoppen { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1.25rem; }
+@media print {
+  .cursus.print-antwoorden > :not(.antwoorden-achter) { display: none !important; }
+  .cursus.print-antwoorden .antwoorden-achter { position: static; display: block; padding: 0; background: none; }
+  .cursus.print-antwoorden .antwoorden { width: auto; max-height: none; overflow: visible; padding: 0; }
+  .cursus.print-antwoorden .antwoorden .knoppen, .cursus.print-antwoorden .antwoorden-uitleg { display: none; }
+  .cursus.print-antwoorden .antwoorden-naam input { border: 0; padding: 0; }
+}

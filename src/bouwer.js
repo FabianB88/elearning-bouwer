@@ -163,6 +163,7 @@
     table: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3 10h18M3 15h18M10 5v14"/>',
     chart: '<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/>',
     divider: '<path d="M4 12h16"/><path d="M9 6h6M9 18h6"/>',
+    open: '<path d="M4 5h16v11H9l-5 4Z"/><path d="M8 9h8M8 12.5h5"/>',
     fill: '<path d="M3 12h4M17 12h4"/><rect x="8" y="8.5" width="8" height="7" rx="1.5"/>',
     scenario: '<path d="M4 5h11v7H8l-4 3Z"/><path d="M15 9h5v7l-3-2h-6v-2"/>',
     verplaats: '<path d="M14 5h5v5M19 5l-8 8"/><path d="M17 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4"/>',
@@ -462,6 +463,7 @@
         }; break;
       case 'divider': uit = { t: t }; break;
       case 'fill': uit = { t: t, question: alsAlinea(b.question), text: naarTekst(b.text), feedback: tekstVan(b.feedback), feedbackWrong: tekstVan(b.feedbackWrong) }; break;
+      case 'open': uit = { t: t, question: alsAlinea(b.question), hint: tekstVan(b.hint), feedback: tekstVan(b.feedback) }; break;
       case 'scenario':
         var gezienS = {};
         var scenes = lijstVan(b.scenes).map(function (sc) {
@@ -1503,6 +1505,25 @@
         ];
       }
     },
+    open: {
+      naam: 'Open vraag', groep: 'Vragen', uitleg: 'Eigen antwoord, wordt niet nagekeken',
+      nieuw: function () { return { t: 'open', question: '', hint: '', feedback: '' }; },
+      samenvatting: function (b) { return eerste(b.question, 90) || 'Nog geen vraag'; },
+      waarschuwing: function (b) { return naarTekst(b.question) ? '' : 'Nog geen vraag'; },
+      velden: function (b) {
+        return [
+          h('div', { class: 'uitleg-blok' },
+            h('strong', { text: 'Zo werkt een open vraag. ' }),
+            'De e-learning kan een open antwoord niet nakijken: er is geen goed of fout en het telt niet mee voor de score. ',
+            'De student schrijft een antwoord en ziet daarna jouw voorbeeldantwoord of aandachtspunten. ',
+            'Alle antwoorden staan voor de student onder Mijn antwoorden, om af te drukken, als PDF te bewaren of voor Word te downloaden en in te leveren. ',
+            'In een SCORM-pakket gaan ze ook als "niet nagekeken" naar het LMS.'),
+          V.tekst('Vraag', b, 'question', { meer: true, rijen: 2, html: true, hint: 'Bijvoorbeeld: Hoe zie je dit terug bij je stagebedrijf?' }),
+          V.tekst('Hulp bij het schrijven (optioneel)', b, 'hint', { hint: 'Bijvoorbeeld: Noem een concreet voorbeeld en leg uit waarom het past.', uitleg: 'Staat als lichte tekst in het lege antwoordvak.' }),
+          V.tekst('Voorbeeldantwoord of waar let je op (optioneel)', b, 'feedback', { meer: true, rijen: 3, uitleg: 'De student ziet dit pas na het bewaren van het eigen antwoord.' })
+        ];
+      }
+    },
     divider: {
       naam: 'Scheidingslijn', groep: 'Structuur', uitleg: 'Rustpunt tussen onderwerpen',
       nieuw: function () { return { t: 'divider' }; },
@@ -1529,7 +1550,7 @@
     { groep: 'Tekst', items: ['text', 'list', 'quote', 'note', 'table'] },
     { groep: 'Beeld en media', items: ['image', 'imagetext', 'gallery', 'video', 'audio', 'embed', 'chart', 'links'] },
     { groep: 'Interactief', items: ['hotspots', 'tabs', 'accordion', 'cards', 'timeline', 'steps', 'scenario'] },
-    { groep: 'Vragen', items: ['quiz', 'quiz-multi', 'fill', 'match', 'sort'] },
+    { groep: 'Vragen', items: ['quiz', 'quiz-multi', 'fill', 'match', 'sort', 'open'] },
     { groep: 'Structuur', items: ['continue', 'divider'] }
   ];
   function maakBlok(sleutel) {
@@ -2621,7 +2642,10 @@
     /* Het voorbeeld is smaller dan het venster; daarom reageert de mobiele
        opmaak hier op de breedte van het voorbeeld in plaats van het scherm. */
     var css = $('#speler-css').textContent.replace(/@media\s*\(max-width:\s*(\d+)px\)/g, '@container speler (max-width: $1px)');
-    schaduw.append(h('style', { text: css + '\n.speler-vlak { container: speler / inline-size; min-height: 100%; }' }));
+    schaduw.append(h('style', { text: css + '\n.speler-vlak { container: speler / inline-size; min-height: 100%; position: relative; }'
+      /* In het voorbeeld blijft Mijn antwoorden binnen het voorbeeld, en in beeld bij scrollen. */
+      + '\n.speler-vlak .antwoorden-achter { position: absolute; align-items: start; }'
+      + '\n.speler-vlak .antwoorden { position: sticky; top: 1rem; max-height: calc(100vh - 8rem); }' }));
     vbOntwerp = h('style');
     schaduw.append(vbOntwerp);
     vbRoot = h('div', { class: 'cursus' });
@@ -3083,6 +3107,16 @@
       schrijf: function (json, staat, module) {
         if (!actief || afgesloten) return;
         zet('cmi.suspend_data', json);
+        if (json.length > 4096 && String(api.LMSGetLastError && api.LMSGetLastError()) !== '0') {
+          try {
+            var kort2 = JSON.parse(json);
+            Object.keys(kort2.modules || {}).forEach(function (m) {
+              var a = kort2.modules[m].antwoorden || {};
+              Object.keys(a).forEach(function (k) { if (a[k] && a[k].open) delete a[k].tekst; });
+            });
+            zet('cmi.suspend_data', JSON.stringify(kort2));
+          } catch (e) { /* laat het bij de eerste poging */ }
+        }
         if (module) zet('cmi.core.lesson_location', module);
         var totaal = 0, goed = 0;
         cursus.lessons.forEach(function (l) {
