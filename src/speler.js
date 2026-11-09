@@ -1505,7 +1505,8 @@ function Speler(root, cursus, opts) {
      bewaren ziet de student het voorbeeldantwoord of de aandachtspunten van de
      docent, en het antwoord staat onder Mijn antwoorden om te downloaden. Een
      kopie in de browser vangt een LMS op dat lange antwoorden niet bewaart. */
-  function openReserve(id) { return 'elearning-open:' + cursus.id + ':' + id; }
+  /* Per student: op een gedeelde computer ziet niemand andermans antwoorden. */
+  function openReserve(id) { return 'elearning-open:' + cursus.id + ':' + ((opts.opslag && opts.opslag.student) || '') + ':' + id; }
   function openTekst(id, a) {
     if (a && typeof a.tekst === 'string') return a.tekst;
     try { return localStorage.getItem(openReserve(id)) || ''; } catch (e) { return ''; }

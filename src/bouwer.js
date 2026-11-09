@@ -2649,7 +2649,7 @@
     bewaarLokaal: function () { ls('bouwer:bieb', JSON.stringify(Bieb.lijst)); },
     voegToe: function (x) {
       return Bieb.laad().then(function () {
-        if (JSON.stringify(x).length > 800000) throw new Error('te groot');
+        if (JSON.stringify(x).length > (Opslag.modus === 'account' ? 800000 : 300000)) throw new Error('te groot');
         Bieb.lijst.unshift(x);
         if (Opslag.modus === 'account') return Opslag.col.doc('bieb-' + x.id).set(x);
         try { Bieb.bewaarLokaal(); } catch (e) { Bieb.lijst.shift(); throw e; }
@@ -2808,13 +2808,22 @@
       };
     }
 
-    /* Alinea's: korte regels worden een opsomming, lange gewone alinea's. */
-    function alsHtml(regels) {
+    /* Op een dia zijn korte regels bijna altijd een opsomming. In Word tellen
+       alleen echte lijstitems; opeenvolgende items komen in één lijst. */
+    function alsHtml(regels, dia) {
       regels = regels.filter(function (x) { return x.tekst.trim(); });
       if (!regels.length) return '';
-      var kort = regels.length >= 2 && regels.every(function (x) { return x.tekst.length < 160; });
-      if (kort || regels.every(function (x) { return x.lijst; })) return '<ul>' + regels.map(function (x) { return '<li>' + (x.html || esc(x.tekst)) + '</li>'; }).join('') + '</ul>';
-      return regels.map(function (x) { return '<p>' + (x.html || esc(x.tekst)) + '</p>'; }).join('');
+      if (dia && regels.length >= 2 && regels.every(function (x) { return x.tekst.length < 160; })) {
+        return '<ul>' + regels.map(function (x) { return '<li>' + (x.html || esc(x.tekst)) + '</li>'; }).join('') + '</ul>';
+      }
+      var uit = '', inLijst = false;
+      regels.forEach(function (x) {
+        var inhoud = x.html || esc(x.tekst);
+        if (x.lijst && !inLijst) { uit += '<ul>'; inLijst = true; }
+        if (!x.lijst && inLijst) { uit += '</ul>'; inLijst = false; }
+        uit += x.lijst ? '<li>' + inhoud + '</li>' : '<p>' + inhoud + '</p>';
+      });
+      return uit + (inLijst ? '</ul>' : '');
     }
 
     /* ------------------------------------------------ PowerPoint */
@@ -2826,6 +2835,12 @@
         verslag.delen = dias.length;
         return naElkaar(dias, function (naam) { return dia(zip, naam, beeld, opties); });
       }).then(function (dias) {
+        verslag.verborgen = dias.filter(function (d) { return d.verborgen; }).length;
+        dias = dias.filter(function (d) { return !d.verborgen; });
+        var tel = {};
+        dias.forEach(function (d) { d.beelden.forEach(function (b) { if (b) tel[b.src] = (tel[b.src] || 0) + 1; }); });
+        var logo = function (b) { return tel[b.src] > 3 && tel[b.src] >= dias.length * 0.3; };
+        verslag.logos = Object.keys(tel).filter(function (k) { return tel[k] > 3 && tel[k] >= dias.length * 0.3; }).length;
         var modules = [], huidig = null;
         function nieuw(titel) { huidig = { title: titel, blocks: [] }; modules.push(huidig); }
         var sinds = 0;
@@ -2833,15 +2848,15 @@
           var alleenTitel = d.titel && !d.regels.length && !d.beelden.length && !d.tabellen.length;
           if (i === 0 && (d.voorblad || alleenTitel)) {
             nieuw(d.titel || opties.naam);
-            if (d.regels.length) huidig.blocks.push({ t: 'text', heading: '', body: alsHtml(d.regels) });
+            if (d.regels.length) huidig.blocks.push({ t: 'text', heading: '', body: alsHtml(d.regels, true) });
             return;
           }
           if (alleenTitel && opties.splitsen) { nieuw(d.titel); sinds = 0; return; }
           if (!huidig) nieuw(d.titel || opties.naam);
           if (sinds && sinds % 3 === 0 && opties.stappen) huidig.blocks.push({ t: 'continue' });
           sinds++;
-          var tekst = alsHtml(d.regels) + (opties.notities && d.notities.length ? d.notities.map(function (n) { return '<p>' + esc(n) + '</p>'; }).join('') : '');
-          var beelden = d.beelden.filter(Boolean);
+          var tekst = alsHtml(d.regels, true) + (opties.notities && d.notities.length ? d.notities.map(function (n) { return '<p>' + esc(n) + '</p>'; }).join('') : '');
+          var beelden = d.beelden.filter(function (b) { return b && !logo(b); });
           if (beelden.length === 1 && tekst) {
             huidig.blocks.push({ t: 'imagetext', src: beelden[0].src, w: beelden[0].w, h: beelden[0].h, alt: '', caption: '', kant: 'rechts', heading: d.titel, body: tekst });
           } else {
@@ -2857,7 +2872,7 @@
     function dia(zip, naam, beeld, opties) {
       return Promise.all([zip.xml(naam), zip.xml(relNaam(naam))]).then(function (x) {
         var doc = zonderDubbel(x[0]), rels = relaties(x[1]);
-        var d = { titel: '', regels: [], beelden: [], tabellen: [], notities: [], voorblad: false };
+        var d = { titel: '', regels: [], beelden: [], tabellen: [], notities: [], voorblad: false, verborgen: attr(doc.documentElement, 'show') === '0' };
         alle(doc, 'sp').forEach(function (sp) {
           var soort = attr(een(sp, 'ph'), 'type');
           if (['sldNum', 'dt', 'ftr', 'hdr'].indexOf(soort) >= 0) return;
@@ -2959,7 +2974,7 @@
             sluitTekst();
             kop = tekst;
           } else if (tekst) {
-            regels.push({ tekst: tekst, html: runsHtml(el), lijst: !!een(een(el, 'pPr'), 'numPr') });
+            regels.push({ tekst: tekst, html: runsHtml(el), lijst: !!een(een(el, 'pPr'), 'numPr') || /^(listparagraph|lijstalinea)$/i.test(stijl) });
           }
           if (ids.length) {
             sluitTekst(); zorg();
@@ -3046,9 +3061,14 @@
           var blokken = r.modules.reduce(function (n, m) { return n + m.blocks.filter(function (b) { return b.t !== 'continue'; }).length; }, 0);
           if (!blokken) { status.append(h('p', { class: 'fout', text: 'In dit bestand vond ik geen tekst of afbeeldingen om over te nemen.' })); return; }
           var v = r.verslag;
+          var beelden = r.modules.reduce(function (n, m) { return n + m.blocks.filter(function (b) { return b.src; }).length; }, 0);
+          var los = [];
+          if (v.verborgen) los.push(aantal(v.verborgen, '1 verborgen dia', "verborgen dia's"));
+          if (v.logos) los.push(aantal(v.logos, '1 plaatje dat op veel dia\'s terugkomt (zoals een logo)', "plaatjes die op veel dia's terugkomen (zoals een logo)"));
+          if (v.overgeslagen) los.push(aantal(v.overgeslagen, '1 afbeelding', 'afbeeldingen') + ' in een formaat dat de browser niet kan tonen (zoals EMF)');
           status.append(h('div', { class: 'herkend' },
-            (v.soort === 'powerpoint' ? v.delen + " dia's" : 'Het document') + ' gelezen: ' + aantal(r.modules.length, '1 module', 'modules') + ' met ' + aantal(blokken, '1 blok', 'blokken') + (v.beelden ? ', waarvan ' + aantal(v.beelden, '1 afbeelding', 'afbeeldingen') : '') + '.'
-            + (v.overgeslagen ? ' ' + aantal(v.overgeslagen, '1 afbeelding', 'afbeeldingen') + ' in een formaat dat de browser niet kan tonen (zoals EMF) zijn overgeslagen.' : '')),
+            (v.soort === 'powerpoint' ? v.delen + " dia's" : 'Het document') + ' gelezen: ' + aantal(r.modules.length, '1 module', 'modules') + ' met ' + aantal(blokken, '1 blok', 'blokken') + (beelden ? ', waarvan ' + aantal(beelden, '1 afbeelding', 'afbeeldingen') : '') + '.'
+            + (los.length ? ' Overgeslagen: ' + los.join(', ') + '.' : '')),
             h('ul', { class: 'import-lijst' }, r.modules.map(function (m) { return h('li', null, h('strong', { text: m.title }), ' · ' + aantal(m.blocks.filter(function (b) { return b.t !== 'continue'; }).length, '1 blok', 'blokken')); })));
           toevoegen.disabled = false;
           toevoegen.textContent = r.modules.length > 1 ? r.modules.length + ' modules toevoegen' : 'Module toevoegen';
@@ -3064,7 +3084,10 @@
         if (!resultaat) return;
         var nieuw = resultaat.modules.map(function (m) { return { id: nieuwId('m'), title: m.title, deadline: '', blocks: blokkenUit(m.blocks) }; });
         /* Een e-learning met alleen één lege module: die maakt plaats. */
-        if (S.cursus.lessons.length === 1 && moduleIsLeeg(S.cursus.lessons[0])) S.cursus.lessons = [];
+        if (S.cursus.lessons.length === 1 && moduleIsLeeg(S.cursus.lessons[0])) {
+          S.verwijderdeLessen.push(S.cursus.lessons[0].id);
+          S.cursus.lessons = [];
+        }
         sluit();
         voegModulesToe(nieuw, bestandsnaam, 'geïmporteerd');
       });
@@ -3651,6 +3674,7 @@
     }
     return {
       actief: actief,
+      student: actief ? lees('cmi.core.student_id') : '',
       antwoord: antwoord,
       lees: function () { return lees('cmi.suspend_data'); },
       schrijf: function (json, staat, module) {
@@ -3905,11 +3929,11 @@
     var min = Math.round(w / 180 + video * 5 + vragen * 1.5 + rest);
     return { min: Math.max(1, min), lezen: Math.round(w / 180), video: video, vragen: vragen };
   }
-  function tijdTekst(t) { return t.min < 60 ? 'ca. ' + t.min + ' min' : 'ca. ' + Math.floor(t.min / 60) + ' u ' + (t.min % 60 ? t.min % 60 + ' min' : ''); }
+  function tijdTekst(t) { return t.min < 60 ? 'ca. ' + t.min + ' min' : 'ca. ' + Math.floor(t.min / 60) + ' u' + (t.min % 60 ? ' ' + t.min % 60 + ' min' : ''); }
 
   /* Zinnen langer dan B1 aankan: gemiddeld meer dan 20 woorden, of één zin van 30 of meer. */
   function langeZinnen(tekst) {
-    var zinnen = String(tekst).split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9"'‘“(])/).map(woorden).filter(function (n) { return n >= 3; });
+    var zinnen = String(tekst).split(/\n+|(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9"'‘“(])/).map(woorden).filter(function (n) { return n >= 3; });
     if (!zinnen.length) return null;
     var gem = zinnen.reduce(function (a, b) { return a + b; }, 0) / zinnen.length;
     var langste = Math.max.apply(null, zinnen);
@@ -3934,7 +3958,7 @@
         if (b.t === 'video' && (b.youtube || b.vimeo || b.url) && !b.ondertiteld) zonderOndertitels.push(b);
         if (b.t === 'audio' && b.url && leeg(b.transcript)) tip(b, 'Geen uitgeschreven tekst: wie niet kan luisteren, mist dit fragment.');
         if (['text', 'imagetext', 'note', 'tabs', 'accordion', 'timeline', 'cards'].indexOf(b.t) >= 0) {
-          var lz = langeZinnen(blokTeksten(b).join(' '));
+          var lz = blokTeksten(b).map(langeZinnen).filter(Boolean)[0];
           if (lz) tip(b, lz + '. Knip lange zinnen op.');
         }
       });
@@ -4889,7 +4913,7 @@
 
   cap('sample').then(function (s) { S.sample = s; if (s) { renderStructuur(); renderEditor(); } });
 
-  Opslag.start().then(function () { return Opslag.lijst(); }).then(function (lijst) {
+  Opslag.start().then(function () { Bieb.lijst = null; return Opslag.lijst(); }).then(function (lijst) {
     S.lijst = lijst;
     var laatste = ls('bouwer:laatste');
     var doel = lijst.find(function (x) { return x.id === laatste; }) || lijst[0];
