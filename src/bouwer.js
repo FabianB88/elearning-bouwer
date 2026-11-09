@@ -1976,6 +1976,7 @@
       h('div', { class: 'knoprij' },
         h('button', { type: 'button', class: 'knop klein', onclick: nieuweModule }, ico('plus'), 'Module'),
         h('button', { type: 'button', class: 'knop klein', onclick: dialoogModuleKopie }, ico('kopie'), 'Uit andere e-learning'),
+        h('button', { type: 'button', class: 'knop klein', onclick: dialoogImport }, 'Uit PowerPoint of Word (beta)'),
         S.sample ? h('button', { type: 'button', class: 'knop klein claude', onclick: dialoogModule }, ico('ster'), 'Module met Claude') : null));
 
     var beheer = h('div', { class: 'sectie' },
@@ -2624,12 +2625,12 @@
     });
   }
 
-  function voegModulesToe(nieuw, bronNaam) {
+  function voegModulesToe(nieuw, bronNaam, hoe) {
     nieuw.forEach(function (l) { S.cursus.lessons.push(l); });
     S.vuil['*'] = 1;
     gewijzigd(nieuw[0].id);
     kiesModule(nieuw[0].id);
-    melding((nieuw.length === 1 ? 'Module' : nieuw.length + ' modules') + ' gekopieerd uit ' + (bronNaam || 'een andere e-learning') + '.');
+    melding((nieuw.length === 1 ? 'Module' : nieuw.length + ' modules') + ' ' + (hoe || 'gekopieerd') + ' uit ' + (bronNaam || 'een andere e-learning') + '.');
   }
 
   /* Mijn blokken: blokken die je vaker gebruikt, los van een e-learning. Met
@@ -2721,6 +2722,366 @@
           });
         }));
     }));
+  }
+
+  /* ================================================================ importeren (beta) */
+
+  /* Leest een .pptx of .docx in de browser, zonder server en zonder AI. Een
+     Office-bestand is een zip met XML; daaruit halen we titels, tekst,
+     opsommingen, tabellen, afbeeldingen en sprekersnotities, en maken er
+     blokken van. Vragen voegt de maker daarna zelf toe. */
+  var Import = (function () {
+    var R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+    function leesZip(buf) {
+      var dv = new DataView(buf), u8 = new Uint8Array(buf), eind = -1;
+      for (var i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) {
+        if (dv.getUint32(i, true) === 0x06054b50) { eind = i; break; }
+      }
+      if (eind < 0) throw new Error('geen zip');
+      var n = dv.getUint16(eind + 10, true), p = dv.getUint32(eind + 16, true);
+      var dec = new TextDecoder(), items = {};
+      for (var k = 0; k < n && dv.getUint32(p, true) === 0x02014b50; k++) {
+        var nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+        items[dec.decode(u8.subarray(p + 46, p + 46 + nl))] = { methode: dv.getUint16(p + 10, true), grootte: dv.getUint32(p + 20, true), plek: dv.getUint32(p + 42, true) };
+        p += 46 + nl + xl + cl;
+      }
+      function bytes(naam) {
+        var it = items[naam];
+        if (!it) return Promise.resolve(null);
+        var start = it.plek + 30 + dv.getUint16(it.plek + 26, true) + dv.getUint16(it.plek + 28, true);
+        var data = u8.subarray(start, start + it.grootte);
+        if (it.methode === 0) return Promise.resolve(data);
+        if (it.methode !== 8 || typeof DecompressionStream === 'undefined') return Promise.reject(new Error('uitpakken'));
+        return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer().then(function (b) { return new Uint8Array(b); });
+      }
+      function xml(naam) {
+        return bytes(naam).then(function (b) { return b ? new DOMParser().parseFromString(new TextDecoder().decode(b), 'application/xml') : null; });
+      }
+      return { heeft: function (naam) { return !!items[naam]; }, bytes: bytes, xml: xml };
+    }
+
+    function alle(el, naam) { return el ? Array.prototype.slice.call(el.getElementsByTagNameNS('*', naam)) : []; }
+    function een(el, naam) { return alle(el, naam)[0] || null; }
+    function attr(el, naam) {
+      if (!el) return '';
+      for (var i = 0; i < el.attributes.length; i++) if (el.attributes[i].localName === naam && !el.attributes[i].namespaceURI) return el.attributes[i].value;
+      for (var j = 0; j < el.attributes.length; j++) if (el.attributes[j].localName === naam) return el.attributes[j].value;
+      return '';
+    }
+    function relaties(doc) {
+      var m = {};
+      alle(doc, 'Relationship').forEach(function (x) { m[attr(x, 'Id')] = { doel: attr(x, 'Target'), type: attr(x, 'Type'), extern: attr(x, 'TargetMode') === 'External' }; });
+      return m;
+    }
+    /* Office bewaart tekstvakken en vormen twee keer: modern (Choice) en voor
+       oude versies (Fallback). De tweede laten we weg, anders staat alles dubbel. */
+    function zonderDubbel(doc) { alle(doc, 'Fallback').forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); }); return doc; }
+    function relNaam(naam) { return naam.replace(/([^/]+)$/, '_rels/$1.rels'); }
+    function pad(basis, doel) {
+      if (doel.charAt(0) === '/') return doel.slice(1);
+      var delen = basis.split('/');
+      delen.pop();
+      doel.split('/').forEach(function (d) { if (d === '..') delen.pop(); else if (d && d !== '.') delen.push(d); });
+      return delen.join('/');
+    }
+    function naElkaar(lijst, fn) {
+      var uit = [];
+      return lijst.reduce(function (p, x, i) { return p.then(function () { return fn(x, i).then(function (y) { uit.push(y); }); }); }, Promise.resolve()).then(function () { return uit; });
+    }
+
+    /* Afbeeldingen: alleen gewone beeldformaten; EMF/WMF en piepkleine
+       plaatjes (pijltjes, logo's) slaan we over. */
+    function maakBeelden(zip, verslag) {
+      var cache = {};
+      return function (naam) {
+        if (cache[naam]) return cache[naam];
+        if (!/\.(png|jpe?g|gif|webp|bmp)$/i.test(naam)) { verslag.overgeslagen++; return (cache[naam] = Promise.resolve(null)); }
+        var type = /\.png$/i.test(naam) ? 'image/png' : /\.gif$/i.test(naam) ? 'image/gif' : /\.webp$/i.test(naam) ? 'image/webp' : /\.bmp$/i.test(naam) ? 'image/bmp' : 'image/jpeg';
+        return (cache[naam] = zip.bytes(naam).then(function (b) {
+          return b ? verwerkBeeld(new Blob([b], { type: type })) : null;
+        }).then(function (x) {
+          if (x && x.w < 64 && x.h < 64) return null;
+          if (x) verslag.beelden++;
+          return x;
+        }).catch(function () { verslag.overgeslagen++; return null; }));
+      };
+    }
+
+    /* Alinea's: korte regels worden een opsomming, lange gewone alinea's. */
+    function alsHtml(regels) {
+      regels = regels.filter(function (x) { return x.tekst.trim(); });
+      if (!regels.length) return '';
+      var kort = regels.length >= 2 && regels.every(function (x) { return x.tekst.length < 160; });
+      if (kort || regels.every(function (x) { return x.lijst; })) return '<ul>' + regels.map(function (x) { return '<li>' + (x.html || esc(x.tekst)) + '</li>'; }).join('') + '</ul>';
+      return regels.map(function (x) { return '<p>' + (x.html || esc(x.tekst)) + '</p>'; }).join('');
+    }
+
+    /* ------------------------------------------------ PowerPoint */
+    function pptx(zip, opties, verslag) {
+      var beeld = maakBeelden(zip, verslag);
+      return Promise.all([zip.xml('ppt/presentation.xml'), zip.xml('ppt/_rels/presentation.xml.rels')]).then(function (x) {
+        var rel = relaties(x[1]);
+        var dias = alle(x[0], 'sldId').map(function (sd) { var y = rel[sd.getAttributeNS(R, 'id')]; return y ? pad('ppt/presentation.xml', y.doel) : null; }).filter(Boolean);
+        verslag.delen = dias.length;
+        return naElkaar(dias, function (naam) { return dia(zip, naam, beeld, opties); });
+      }).then(function (dias) {
+        var modules = [], huidig = null;
+        function nieuw(titel) { huidig = { title: titel, blocks: [] }; modules.push(huidig); }
+        var sinds = 0;
+        dias.forEach(function (d, i) {
+          var alleenTitel = d.titel && !d.regels.length && !d.beelden.length && !d.tabellen.length;
+          if (i === 0 && (d.voorblad || alleenTitel)) {
+            nieuw(d.titel || opties.naam);
+            if (d.regels.length) huidig.blocks.push({ t: 'text', heading: '', body: alsHtml(d.regels) });
+            return;
+          }
+          if (alleenTitel && opties.splitsen) { nieuw(d.titel); sinds = 0; return; }
+          if (!huidig) nieuw(d.titel || opties.naam);
+          if (sinds && sinds % 3 === 0 && opties.stappen) huidig.blocks.push({ t: 'continue' });
+          sinds++;
+          var tekst = alsHtml(d.regels) + (opties.notities && d.notities.length ? d.notities.map(function (n) { return '<p>' + esc(n) + '</p>'; }).join('') : '');
+          var beelden = d.beelden.filter(Boolean);
+          if (beelden.length === 1 && tekst) {
+            huidig.blocks.push({ t: 'imagetext', src: beelden[0].src, w: beelden[0].w, h: beelden[0].h, alt: '', caption: '', kant: 'rechts', heading: d.titel, body: tekst });
+          } else {
+            if (d.titel || tekst) huidig.blocks.push({ t: 'text', heading: d.titel, body: tekst });
+            beelden.forEach(function (b) { huidig.blocks.push({ t: 'image', src: b.src, w: b.w, h: b.h, caption: '', alt: '' }); });
+          }
+          d.tabellen.forEach(function (rows) { huidig.blocks.push({ t: 'table', kop: true, rows: rows, caption: '' }); });
+        });
+        return modules;
+      });
+    }
+
+    function dia(zip, naam, beeld, opties) {
+      return Promise.all([zip.xml(naam), zip.xml(relNaam(naam))]).then(function (x) {
+        var doc = zonderDubbel(x[0]), rels = relaties(x[1]);
+        var d = { titel: '', regels: [], beelden: [], tabellen: [], notities: [], voorblad: false };
+        alle(doc, 'sp').forEach(function (sp) {
+          var soort = attr(een(sp, 'ph'), 'type');
+          if (['sldNum', 'dt', 'ftr', 'hdr'].indexOf(soort) >= 0) return;
+          var regels = alle(een(sp, 'txBody'), 'p').map(function (p) {
+            return { tekst: alle(p, 't').map(function (t) { return t.textContent; }).join('').replace(/\s+/g, ' ').trim() };
+          }).filter(function (y) { return y.tekst; });
+          if (!regels.length) return;
+          if (soort === 'title' || soort === 'ctrTitle') {
+            if (!d.titel) d.titel = regels.map(function (y) { return y.tekst; }).join(' ');
+            if (soort === 'ctrTitle') d.voorblad = true;
+          } else d.regels = d.regels.concat(regels);
+        });
+        var namen = [];
+        alle(doc, 'blip').forEach(function (b) { var y = rels[b.getAttributeNS(R, 'embed')]; if (y && !y.extern) namen.push(pad(naam, y.doel)); });
+        alle(doc, 'tbl').forEach(function (tbl) {
+          d.tabellen.push(alle(tbl, 'tr').map(function (tr) { return alle(tr, 'tc').map(function (tc) { return alle(tc, 't').map(function (t) { return t.textContent; }).join(' ').trim(); }); }));
+        });
+        var notitie = Object.keys(rels).map(function (k) { return rels[k]; }).find(function (y) { return /notesSlide$/.test(y.type); });
+        var notities = opties.notities && notitie ? zip.xml(pad(naam, notitie.doel)).then(function (nd) {
+          alle(nd, 'sp').forEach(function (sp) {
+            if (attr(een(sp, 'ph'), 'type') !== 'body') return;
+            alle(een(sp, 'txBody'), 'p').forEach(function (p) {
+              var t = alle(p, 't').map(function (y) { return y.textContent; }).join('').trim();
+              if (t) d.notities.push(t);
+            });
+          });
+        }) : Promise.resolve();
+        return Promise.all([notities, Promise.all(namen.map(beeld))]).then(function (y) { d.beelden = y[1]; return d; });
+      });
+    }
+
+    /* ------------------------------------------------ Word */
+    function docx(zip, opties, verslag) {
+      var beeld = maakBeelden(zip, verslag);
+      return Promise.all([zip.xml('word/document.xml'), zip.xml('word/_rels/document.xml.rels')]).then(function (x) {
+        var rels = relaties(x[1]);
+        var body = een(zonderDubbel(x[0]), 'body');
+        /* Alinea's en tabellen op volgorde; tekst in tekstvakken telt als gewone alinea's. */
+        function vlakken(ouder) {
+          var uit = [];
+          Array.prototype.forEach.call(ouder ? ouder.children : [], function (el) {
+            if (el.localName === 'tbl') { uit.push(el); return; }
+            if (el.localName === 'sdt') { uit = uit.concat(vlakken(een(el, 'sdtContent'))); return; }
+            if (el.localName !== 'p') return;
+            var vakken = alle(el, 'txbxContent').filter(function (v) {
+              for (var o = v.parentNode; o && o !== el; o = o.parentNode) if (o.localName === 'txbxContent') return false;
+              return true;
+            });
+            if (!vakken.length) { uit.push(el); return; }
+            vakken.forEach(function (v) { uit = uit.concat(vlakken(v)); });
+          });
+          return uit;
+        }
+        var modules = [], huidig = null, regels = [], kop = '', taken = [];
+        function module(titel) { huidig = { title: titel, blocks: [] }; modules.push(huidig); }
+        function zorg() { if (!huidig) module(opties.naam); }
+        function sluitTekst() {
+          if (!kop && !regels.length) return;
+          zorg();
+          huidig.blocks.push({ t: 'text', heading: kop, body: alsHtml(regels) });
+          kop = ''; regels = [];
+        }
+        function runsHtml(p) {
+          return alle(p, 'r').map(function (run) {
+            var t = Array.prototype.map.call(run.childNodes, function (c) {
+              if (c.localName === 't') return c.textContent;
+              if (c.localName === 'tab' || c.localName === 'br') return ' ';
+              return '';
+            }).join('');
+            if (!t) return '';
+            var rpr = een(run, 'rPr');
+            var vet = een(rpr, 'b'), schuin = een(rpr, 'i');
+            var h2 = esc(t);
+            if (vet && !/^(0|false)$/.test(attr(vet, 'val'))) h2 = '<strong>' + h2 + '</strong>';
+            if (schuin && !/^(0|false)$/.test(attr(schuin, 'val'))) h2 = '<em>' + h2 + '</em>';
+            return h2;
+          }).join('');
+        }
+        vlakken(body).forEach(function (el) {
+          if (el.localName === 'tbl') {
+            sluitTekst(); zorg();
+            var rows = alle(el, 'tr').map(function (tr) { return alle(tr, 'tc').map(function (tc) { return alle(tc, 't').map(function (t) { return t.textContent; }).join(' ').trim(); }); });
+            /* Een tabel van één cel is meestal een kader: dan een opmerking. */
+            if (rows.length === 1 && rows[0].length === 1) {
+              var cel = alle(el, 'p').map(function (p) { return alle(p, 't').map(function (t) { return t.textContent; }).join('').trim(); }).filter(Boolean);
+              if (cel.length) huidig.blocks.push({ t: 'note', soort: 'info', title: '', body: cel.map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') });
+            } else if (rows.length) huidig.blocks.push({ t: 'table', kop: true, rows: rows, caption: '' });
+            return;
+          }
+          if (el.localName !== 'p') return;
+          var stijl = attr(een(een(el, 'pPr'), 'pStyle'), 'val');
+          var tekst = alle(el, 't').map(function (t) { return t.textContent; }).join('').replace(/\s+/g, ' ').trim();
+          var ids = alle(el, 'blip').map(function (b) { return b.getAttributeNS(R, 'embed'); }).filter(function (id) { return rels[id] && !rels[id].extern; });
+          var niveau = /^(title|titel)$/i.test(stijl) ? 1 : ((stijl.match(/^(?:heading|kop)\s*([1-9])$/i) || [])[1] | 0);
+          if (niveau === 1 && tekst) {
+            sluitTekst();
+            if (opties.splitsen || !huidig) module(tekst); else kop = tekst;
+          } else if (niveau >= 2 && tekst) {
+            sluitTekst();
+            kop = tekst;
+          } else if (tekst) {
+            regels.push({ tekst: tekst, html: runsHtml(el), lijst: !!een(een(el, 'pPr'), 'numPr') });
+          }
+          if (ids.length) {
+            sluitTekst(); zorg();
+            var doel = huidig;
+            ids.forEach(function (id) {
+              var plek = doel.blocks.length;
+              doel.blocks.push(null);
+              taken.push(beeld(pad('word/document.xml', rels[id].doel)).then(function (b) {
+                doel.blocks[plek] = b ? { t: 'image', src: b.src, w: b.w, h: b.h, caption: '', alt: '' } : null;
+              }));
+            });
+          }
+        });
+        sluitTekst();
+        verslag.delen = modules.length;
+        return Promise.all(taken).then(function () {
+          modules.forEach(function (m) {
+            m.blocks = m.blocks.filter(Boolean);
+            /* Lange modules in stappen: een doorgaan-knop na elke 3 tekstblokken. */
+            if (opties.stappen) {
+              var uit = [], tel = 0;
+              m.blocks.forEach(function (b, i) {
+                if (b.t === 'text' && b.heading && tel >= 3 && i > 0) { uit.push({ t: 'continue' }); tel = 0; }
+                uit.push(b);
+                if (b.t === 'text') tel++;
+              });
+              m.blocks = uit;
+            }
+          });
+          return modules;
+        });
+      });
+    }
+
+    function lees(bestand, opties) {
+      var verslag = { beelden: 0, overgeslagen: 0, delen: 0, soort: /\.docx$/i.test(bestand.name) ? 'word' : 'powerpoint' };
+      return bestand.arrayBuffer().then(function (buf) {
+        var zip = leesZip(buf);
+        var werk = zip.heeft('ppt/presentation.xml') ? pptx(zip, opties, verslag)
+          : zip.heeft('word/document.xml') ? docx(zip, opties, verslag)
+          : Promise.reject(new Error('soort'));
+        return werk.then(function (modules) {
+          verslag.soort = zip.heeft('ppt/presentation.xml') ? 'powerpoint' : 'word';
+          return { modules: modules.filter(function (m) { return m.blocks.length; }), verslag: verslag };
+        });
+      });
+    }
+
+    return { lees: lees };
+  })();
+
+  function dialoogImport() {
+    dialoog(function (sluit) {
+      var opties = { splitsen: true, notities: true, stappen: true, naam: 'Module' };
+      var kies = h('input', { type: 'file', accept: '.pptx,.docx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document', hidden: true });
+      var status = h('div', { class: 'velden' });
+      var toevoegen = h('button', { type: 'button', class: 'knop primair', disabled: true }, 'Toevoegen');
+      var resultaat = null, bestandsnaam = '';
+
+      function vink(sleutel, tekst) {
+        var id = veldId();
+        var v = h('input', { type: 'checkbox', id: id, checked: opties[sleutel] });
+        v.addEventListener('change', function () { opties[sleutel] = v.checked; });
+        return h('label', { class: 'schakel', for: id }, v, tekst);
+      }
+
+      kies.addEventListener('change', function () {
+        var bestand = kies.files[0];
+        if (!bestand) return;
+        bestandsnaam = bestand.name;
+        /* Zonder titeldia of kop heet de eerste module naar het bestand. */
+        opties.naam = bestand.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim() || 'Module';
+        resultaat = null;
+        toevoegen.disabled = true;
+        status.innerHTML = '';
+        if (/\.(ppt|doc)$/i.test(bestand.name)) {
+          status.append(h('p', { class: 'fout', text: 'Dit is een oud Office-bestand (.ppt of .doc). Open het in PowerPoint of Word en sla het op als .pptx of .docx.' }));
+          return;
+        }
+        status.append(h('p', { class: 'voortgang', text: 'Bezig met lezen van ' + bestand.name + '…' }));
+        Import.lees(bestand, opties).then(function (r) {
+          resultaat = r;
+          status.innerHTML = '';
+          var blokken = r.modules.reduce(function (n, m) { return n + m.blocks.filter(function (b) { return b.t !== 'continue'; }).length; }, 0);
+          if (!blokken) { status.append(h('p', { class: 'fout', text: 'In dit bestand vond ik geen tekst of afbeeldingen om over te nemen.' })); return; }
+          var v = r.verslag;
+          status.append(h('div', { class: 'herkend' },
+            (v.soort === 'powerpoint' ? v.delen + " dia's" : 'Het document') + ' gelezen: ' + aantal(r.modules.length, '1 module', 'modules') + ' met ' + aantal(blokken, '1 blok', 'blokken') + (v.beelden ? ', waarvan ' + aantal(v.beelden, '1 afbeelding', 'afbeeldingen') : '') + '.'
+            + (v.overgeslagen ? ' ' + aantal(v.overgeslagen, '1 afbeelding', 'afbeeldingen') + ' in een formaat dat de browser niet kan tonen (zoals EMF) zijn overgeslagen.' : '')),
+            h('ul', { class: 'import-lijst' }, r.modules.map(function (m) { return h('li', null, h('strong', { text: m.title }), ' · ' + aantal(m.blocks.filter(function (b) { return b.t !== 'continue'; }).length, '1 blok', 'blokken')); })));
+          toevoegen.disabled = false;
+          toevoegen.textContent = r.modules.length > 1 ? r.modules.length + ' modules toevoegen' : 'Module toevoegen';
+        }).catch(function (e) {
+          status.innerHTML = '';
+          status.append(h('p', { class: 'fout', text: e && e.message === 'soort'
+            ? 'Dit lijkt geen PowerPoint- of Word-bestand. Kies een .pptx of .docx.'
+            : 'Dit bestand kon niet worden gelezen. Is het beveiligd of beschadigd? Sla het eventueel opnieuw op in PowerPoint of Word.' }));
+        });
+      });
+
+      toevoegen.addEventListener('click', function () {
+        if (!resultaat) return;
+        var nieuw = resultaat.modules.map(function (m) { return { id: nieuwId('m'), title: m.title, deadline: '', blocks: blokkenUit(m.blocks) }; });
+        /* Een e-learning met alleen één lege module: die maakt plaats. */
+        if (S.cursus.lessons.length === 1 && moduleIsLeeg(S.cursus.lessons[0])) S.cursus.lessons = [];
+        sluit();
+        voegModulesToe(nieuw, bestandsnaam, 'geïmporteerd');
+      });
+
+      return [
+        h('h2', null, 'Importeren uit PowerPoint of Word ', h('span', { class: 'beta' }, 'beta')),
+        h('p', null, 'Zet een presentatie of document om in modules en blokken: titels, tekst, opsommingen, tabellen, afbeeldingen en sprekersnotities. Alles gebeurt in je browser; het bestand gaat nergens heen.'),
+        h('div', { class: 'uitleg-blok' }, h('strong', { text: 'Beta. ' }), 'Opmaak, animaties en vormen komen niet mee, en de indeling klopt niet altijd. Lees alles na, geef afbeeldingen een alt-tekst en voeg zelf vragen toe; Controleren wijst aan wat nog ontbreekt.'),
+        h('div', { class: 'velden' },
+          vink('splitsen', 'Nieuwe module bij elke sectiedia (PowerPoint) of Kop 1 (Word)'),
+          vink('notities', 'Sprekersnotities overnemen als tekst'),
+          vink('stappen', 'Doorgaan-knoppen tussendoor, zodat de student in stappen leest')),
+        h('div', null, h('button', { type: 'button', class: 'knop', onclick: function () { kies.click(); } }, 'Kies een .pptx of .docx'), kies),
+        status,
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), toevoegen)
+      ];
+    });
   }
 
   function dialoogDeadline(l) {
