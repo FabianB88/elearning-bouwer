@@ -1979,11 +1979,25 @@
         h('button', { type: 'button', class: 'knop klein', onclick: dialoogImport }, 'Uit PowerPoint of Word (beta)'),
         S.sample ? h('button', { type: 'button', class: 'knop klein claude', onclick: dialoogModule }, ico('ster'), 'Module met Claude') : null));
 
+    var map = Bestand.map();
+    var autosave = !Bestand.kanMap() || Bestand.gekoppeld() || c.voorbeeld ? null
+      : map && map.toegang ? h('div', { class: 'autosave-vak aan' },
+          h('strong', { text: 'Automatisch opslaan staat aan' }),
+          h('span', { text: 'Al je e-learnings staan als bestand in de map ' + map.naam + ' en worden na elke wijziging bijgewerkt.' }),
+          h('div', { class: 'knoprij' },
+            h('button', { type: 'button', class: 'knop-tekst', onclick: function () { Bestand.kiesMap(); } }, 'Andere map kiezen'),
+            h('button', { type: 'button', class: 'knop-tekst', onclick: function () { Bestand.stopMap(); renderStructuur(); } }, 'Uitzetten')))
+      : h('div', { class: 'autosave-vak' },
+          h('strong', { text: map ? 'Automatisch opslaan wacht op toestemming' : 'Automatisch opslaan staat nog uit' }),
+          h('span', { text: map ? 'De browser vraagt opnieuw toestemming voor de map ' + map.naam + '.' : 'Je werk staat nu alleen in deze browser. Kies één keer een map op je computer, bijvoorbeeld in OneDrive; daarna worden al je e-learnings daar vanzelf bewaard.' }),
+          h('button', { type: 'button', class: 'knop primair', onclick: function () { Bestand.mapKnop(); } }, ico('schijf'), map ? 'Automatisch opslaan hervatten' : 'Map kiezen'));
+
     var beheer = h('div', { class: 'sectie' },
       h('div', { class: 'sectie-kop' }, h('h2', null, 'Bewaren en delen')),
+      autosave,
       h('p', { class: 'hulp', style: 'margin:0 0 12px;font-size:12px;line-height:1.5;color:var(--tekst-2)', text: opslagUitleg() }),
       h('div', { class: 'knoprij' },
-        h('button', { type: 'button', class: 'knop klein' + (Bestand.gekoppeld() ? '' : ' primair'), onclick: function () { Bestand.opslaan(); } }, ico('schijf'), Bestand.gekoppeld() ? 'Nu opslaan' : 'Opslaan als bestand'),
+        h('button', { type: 'button', class: 'knop klein' + (Bestand.gekoppeld() || Bestand.kanMap() ? '' : ' primair'), onclick: function () { Bestand.opslaan(); } }, ico('schijf'), Bestand.gekoppeld() ? 'Nu opslaan' : 'Opslaan als bestand'),
         Bestand.gekoppeld() && Bestand.kan() ? h('button', { type: 'button', class: 'knop klein', onclick: function () { Bestand.opslaan(true); } }, 'Ander bestand') : null,
         h('button', { type: 'button', class: 'knop klein', onclick: dialoogExport }, 'Exporteren'),
         h('button', { type: 'button', class: 'knop klein', onclick: dupliceerCursus }, 'Kopie maken'),
@@ -3359,8 +3373,18 @@
       return start;
     }
 
+    /* Vraag de browser de opslag niet op te ruimen als de schijf vol raakt.
+       Chrome en Edge beslissen dat zelf, zonder venster. */
+    var vastGevraagd = false;
+    function vastleggen() {
+      if (vastGevraagd || !navigator.storage || !navigator.storage.persist) return;
+      vastGevraagd = true;
+      navigator.storage.persisted().then(function (al) { if (!al) return navigator.storage.persist(); }).catch(function () { /* niet erg */ });
+    }
+
     return {
       start: begin,
+      vastleggen: vastleggen,
       groot: function () { return !!db; },
       lees: function (k) { return k in mem ? mem[k] : ls(k); },
       zet: function (k, v) {
@@ -3552,9 +3576,11 @@
       ls('bouwer:laatste', c.id);
       if (plek === 'fout') zetStatus('Niet opgeslagen: exporteer als bouwbestand', 'fout');
       else { statusOpgeslagen(); Bestand.naBewaren(); }
-      if (plek === 'browser' && !Bestand.gekoppeld() && !ls('bouwer:uitleg-browser')) {
+      if (plek === 'browser') Lokaal.vastleggen();
+      if (plek === 'browser' && !Bestand.gekoppeld() && !Bestand.map() && !ls('bouwer:uitleg-browser')) {
         try { ls('bouwer:uitleg-browser', '1'); } catch (e) { /* geen opslag */ }
-        melding('Je werk staat alleen in deze browser. Maak met Opslaan een bestand op je computer; de bouwer houdt dat daarna automatisch bij.', { tekst: 'Opslaan', doe: function () { Bestand.opslaan(); } });
+        if (Bestand.kanMap()) melding('Je werk staat nu alleen in deze browser. Zet automatisch opslaan aan: kies één keer een map op je computer, en al je e-learnings worden daar vanzelf bewaard.', { tekst: 'Map kiezen', doe: function () { Bestand.kiesMap(); } });
+        else melding('Je werk staat alleen in deze browser. Maak met Opslaan een bestand op je computer; de bouwer houdt dat daarna automatisch bij.', { tekst: 'Opslaan', doe: function () { Bestand.opslaan(); } });
       }
       if (!S.lijst.some(function (x) { return x.id === c.id; })) S.lijst.unshift({ id: c.id, title: c.title, updatedAt: c.updatedAt, plek: plek });
       S.lijst.forEach(function (x) { if (x.id === c.id) x.title = c.title; });
@@ -3579,7 +3605,10 @@
   function statusOpgeslagen() {
     var c = S.cursus;
     if (c.voorbeeld) return zetStatus('Voorbeeld: wijzigingen maken een eigen kopie', '');
-    var bestand = Bestand.gekoppeld() ? Bestand.naam() + ' · ' + tijdstip(Bestand.laatst()) : '';
+    Bestand.werkKnopBij();
+    var map = Bestand.map();
+    var bestand = Bestand.gekoppeld() ? Bestand.naam() + ' · ' + tijdstip(Bestand.laatst())
+      : map && map.toegang ? 'de map ' + map.naam + (map.laatst ? ' · ' + tijdstip(map.laatst) : '') : '';
     if (Opslag.modus === 'account') return zetStatus('Opgeslagen in je account' + (bestand ? ' en in ' + bestand : ''), 'ok');
     if (bestand) return zetStatus('In deze browser en in ' + bestand, 'ok');
     zetStatus('Alleen in deze browser opgeslagen' + (Bestand.laatst() ? ' · kopie gedownload om ' + tijdstip(Bestand.laatst()) : ''), 'let');
@@ -3591,9 +3620,19 @@
   }
 
   function opslagUitleg() {
+    var map = Bestand.map();
+    if (!Bestand.gekoppeld() && map) {
+      var mapTekst = map.toegang
+        ? ' Automatisch opslaan op je computer staat aan: al je e-learnings staan als bestand in de map ' + map.naam + ' en worden een paar seconden na elke wijziging bijgewerkt.'
+        : ' Automatisch opslaan in de map ' + map.naam + ' wacht op je toestemming; klik op "Automatisch opslaan hervatten".';
+      if (Opslag.modus === 'account') return 'Je werk wordt automatisch bewaard in je account, alleen zichtbaar voor jou.' + mapTekst;
+      return 'Je werk staat in deze browser.' + mapTekst;
+    }
     var bestand = Bestand.gekoppeld()
       ? ' Er staat ook een kopie in het bestand ' + Bestand.naam() + ' op je computer (laatst om ' + tijdstip(Bestand.laatst()) + '). De bouwer werkt dat bestand een paar seconden na elke wijziging automatisch bij.'
-      : Bestand.kan()
+      : Bestand.kanMap()
+        ? ' Zet automatisch opslaan aan: kies één keer een map op je computer, bijvoorbeeld in OneDrive. Daarna staan al je e-learnings daar als bestand en worden ze na elke wijziging bijgewerkt.'
+        : Bestand.kan()
         ? ' Druk op Opslaan om een bestand op je computer te maken, bijvoorbeeld in OneDrive. Daarna werkt de bouwer dat bestand na elke wijziging automatisch bij.'
         : ' Druk op Opslaan om een bouwbestand te downloaden. Elke 15 minuten krijg je een herinnering als er iets is gewijzigd.';
     if (Opslag.modus === 'account') return 'Je werk wordt automatisch bewaard in je account, alleen zichtbaar voor jou.' + bestand;
@@ -4608,7 +4647,7 @@
     function gekoppeld() { return !!(B.handvat && S.cursus && B.cursusId === S.cursus.id); }
 
     function wisselCursus(c) {
-      B.handvat = null; B.cursusId = null; B.laatst = 0; B.versie = 0; B.herinnerd = 0;
+      B.handvat = null; B.cursusId = null; B.laatst = 0; B.versie = 0; B.herinnerd = 0; B.mapLaatst = 0; B.mapVersie = 0;
       B.sinds = Date.now();
       if (!kan || c.voorbeeld) return;
       var id = c.id;
@@ -4705,24 +4744,144 @@
           if (h) return schrijf(h).catch(herinner);
           herinner();
         });
-      } else if (Opslag.modus === 'browser') herinner();
+      } else if (Opslag.modus === 'browser' && !(M.map && M.toegang)) herinner();
     }
+    /* De opslagmap: één keer een map kiezen, daarna krijgt elke e-learning daar
+       een eigen bestand dat na elke wijziging wordt bijgewerkt. De browser
+       onthoudt de map; na een herstart vraagt hij soms opnieuw toestemming. */
+    var kanMap = kan && typeof window.showDirectoryPicker === 'function';
+    var M = { map: null, toegang: false };
+
+    function laadMap() {
+      if (!kanMap) return;
+      idbLees('__map').then(function (h) {
+        if (!h) { werkKnopBij(); return; }
+        M.map = h;
+        return toestemming(h, false).then(function (x) { M.toegang = !!x; werkKnopBij(); statusNa(); });
+      });
+    }
+
+    function bestandInMap(id, titel) {
+      var bekend = ls('bouwer:mapbestand:' + id);
+      if (bekend) return M.map.getFileHandle(bekend, { create: true });
+      var basis = slug(titel) || 'e-learning';
+      function probeer(n) {
+        var naam = basis + (n > 1 ? '-' + n : '') + '.json';
+        return M.map.getFileHandle(naam).then(function () {
+          return n < 50 ? probeer(n + 1) : Promise.reject(new Error('vol'));
+        }, function () {
+          try { ls('bouwer:mapbestand:' + id, naam); } catch (e) { /* dan volgende keer opnieuw zoeken */ }
+          return M.map.getFileHandle(naam, { create: true });
+        });
+      }
+      return probeer(1);
+    }
+
+    function schrijfNaar(h, tekst) {
+      return h.createWritable().then(function (w) { return w.write(tekst).then(function () { return w.close(); }); });
+    }
+
+    function schrijfInMap() {
+      var c = S.cursus;
+      if (!M.map || !c || c.voorbeeld) return Promise.resolve();
+      var versie = c.updatedAt || 0;
+      return bestandInMap(c.id, c.title).then(function (h) { return schrijfNaar(h, inhoud()); }).then(function () {
+        B.mapLaatst = Date.now(); B.mapVersie = versie;
+        statusNa();
+      });
+    }
+
+    /* Bij het kiezen van de map komen meteen alle e-learnings uit deze browser erin. */
+    function schrijfAlles() {
+      var ids = S.lijst.map(function (x) { return x.id; }).filter(function (id) { return !S.cursus || id !== S.cursus.id; });
+      return ids.reduce(function (p, id) {
+        return p.then(function () {
+          return Opslag.laad(id).then(function (c) {
+            if (!c || c.voorbeeld) return;
+            delete c.voorbeeld;
+            return bestandInMap(id, c.title).then(function (h) { return schrijfNaar(h, JSON.stringify(c, null, 2)); });
+          }).catch(function () { /* deze slaan we over */ });
+        });
+      }, schrijfInMap());
+    }
+
+    function kiesMap() {
+      return window.showDirectoryPicker({ id: 'elearning-bouwer', mode: 'readwrite' }).then(function (h) {
+        M.map = h; M.toegang = true;
+        idbZet('__map', h);
+        werkKnopBij();
+        return schrijfAlles().then(function () {
+          renderStructuur();
+          melding('Automatisch opslaan staat aan. Je e-learnings staan in de map ' + h.name + ' en worden na elke wijziging bijgewerkt.');
+        });
+      }).catch(function (e) {
+        if (e && e.name === 'AbortError') return;
+        melding('Deze map kon niet worden gebruikt. Kies een andere map, bijvoorbeeld in Documenten of OneDrive.');
+      });
+    }
+
+    function hervat() {
+      if (!M.map) return kiesMap();
+      return toestemming(M.map, true).then(function (h) {
+        M.toegang = !!h;
+        werkKnopBij();
+        renderStructuur();
+        if (h) return schrijfInMap().then(function () { melding('Automatisch opslaan in ' + M.map.name + ' loopt weer.'); });
+      });
+    }
+
+    function stopMap() {
+      M.map = null; M.toegang = false;
+      idbZet('__map', null);
+      werkKnopBij();
+      statusNa();
+    }
+
+    /* De knop bovenin staat er zolang automatisch opslaan op je computer nog
+       niet loopt; daarna verdwijnt hij. */
+    function nodig() {
+      return kanMap && S.cursus && !S.cursus.voorbeeld && Opslag.modus === 'browser' && !gekoppeld() && !(M.map && M.toegang);
+    }
+    function werkKnopBij() {
+      var k = document.getElementById('knop-autosave');
+      if (!k) return;
+      k.style.display = nodig() ? '' : 'none';
+      /* Zolang de knop er staat, zegt die al waar het werk staat: de status krimpt tot een stip. */
+      document.body.classList.toggle('autosave-nodig', !!nodig());
+      k.querySelector('.lang').textContent = M.map ? 'Automatisch opslaan hervatten' : 'Automatisch opslaan instellen';
+      k.querySelector('.kort').textContent = M.map ? 'Opslaan hervatten' : 'Opslaan instellen';
+      k.setAttribute('aria-label', M.map ? 'Automatisch opslaan hervatten' : 'Automatisch opslaan instellen');
+      k.title = M.map ? 'De browser vraagt opnieuw toestemming voor de map ' + M.map.name : 'Kies één keer een map op je computer; daarna worden al je e-learnings daar vanzelf bewaard';
+    }
+
     /* Na elk opslaan in de browser of het account: een paar seconden later ook
-       het gekoppelde bestand bijwerken, als de browser daar toestemming voor
-       heeft. Na een herstart vraagt de browser die toestemming opnieuw; dan
-       één melding met een knop. */
+       het gekoppelde bestand of de opslagmap bijwerken, als de browser daar
+       toestemming voor heeft. Zo niet, dan één melding met een knop. */
     var bestandTimer = null, toestemmingGemeld = false;
     function naBewaren() {
-      if (!gekoppeld() || !S.cursus || S.cursus.voorbeeld) return;
+      if (!S.cursus || S.cursus.voorbeeld || (!gekoppeld() && !M.map)) return;
       clearTimeout(bestandTimer);
       bestandTimer = setTimeout(function () {
-        if (!gekoppeld() || (S.cursus.updatedAt || 0) <= B.versie) return;
-        toestemming(B.handvat, false).then(function (h) {
-          if (h) return schrijf(h).catch(function () { herinner(); });
-          if (toestemmingGemeld) return;
-          toestemmingGemeld = true;
-          melding('Automatisch opslaan in ' + B.handvat.name + ' wacht op je toestemming.', { tekst: 'Toestaan', doe: function () { toestemmingGemeld = false; opslaan(); } });
-        });
+        if (gekoppeld()) {
+          if ((S.cursus.updatedAt || 0) <= B.versie) return;
+          toestemming(B.handvat, false).then(function (h) {
+            if (h) return schrijf(h).catch(function () { herinner(); });
+            if (toestemmingGemeld) return;
+            toestemmingGemeld = true;
+            melding('Automatisch opslaan in ' + B.handvat.name + ' wacht op je toestemming.', { tekst: 'Toestaan', doe: function () { toestemmingGemeld = false; opslaan(); } });
+          });
+        } else if (M.map) {
+          if ((S.cursus.updatedAt || 0) <= (B.mapVersie || 0)) return;
+          toestemming(M.map, false).then(function (h) {
+            M.toegang = !!h;
+            werkKnopBij();
+            if (h) return schrijfInMap().catch(function () { M.toegang = false; werkKnopBij(); statusNa(); });
+            statusNa();
+            if (toestemmingGemeld) return;
+            toestemmingGemeld = true;
+            melding('Automatisch opslaan in de map ' + M.map.name + ' wacht op je toestemming.', { tekst: 'Toestaan', doe: function () { toestemmingGemeld = false; hervat(); } });
+          });
+        }
       }, 3000);
     }
     function herinner() {
@@ -4730,6 +4889,7 @@
       melding(gekoppeld() ? 'De back-up naar ' + B.handvat.name + ' wacht op je toestemming.' : 'Je werk staat alleen in deze browser. Maak een back-up op je computer.', { tekst: 'Opslaan', doe: function () { opslaan(); } });
     }
     setInterval(tik, 60 * 1000);
+    laadMap();
 
     return {
       kan: function () { return kan; },
@@ -4739,7 +4899,13 @@
       wissel: wisselCursus,
       koppel: koppel,
       opslaan: opslaan,
-      naBewaren: naBewaren
+      naBewaren: naBewaren,
+      kanMap: function () { return kanMap; },
+      map: function () { return M.map ? { naam: M.map.name, toegang: M.toegang, laatst: B.mapLaatst || 0 } : null; },
+      mapKnop: function () { return M.map ? hervat() : kiesMap(); },
+      kiesMap: kiesMap,
+      stopMap: stopMap,
+      werkKnopBij: werkKnopBij
     };
   })();
 
@@ -4961,6 +5127,7 @@
     $('#knop-vooruit').addEventListener('click', function () { Geschiedenis.vooruit(); });
     $('#knop-opslaan').addEventListener('click', function () { Bestand.opslaan(); });
     $('#status').addEventListener('click', dialoogBewaren);
+    $('#knop-autosave').addEventListener('click', function () { Bestand.mapKnop(); });
     $('#knop-openen').addEventListener('click', function () {
       /* Via de bestandskiezer van de browser onthouden we het bestand, zodat Opslaan erin terugschrijft. */
       if (!Bestand.kan() || typeof window.showOpenFilePicker !== 'function') { $('#bestand-openen').click(); return; }
@@ -5015,7 +5182,24 @@
     paar('#vb-telefoon', '#vb-breed', 'telefoon', true);
     $('#vb-wis').addEventListener('click', function () { if (vbSpeler) vbSpeler.wisVoortgang(); tekenVoorbeeld(); melding('Antwoorden in het voorbeeld gewist.'); });
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) { /* oudere browser */ }
-    window.addEventListener('pagehide', function () { if (Object.keys(S.vuil).length) bewaarNu(); });
+    /* De grote opslag schrijft op de achtergrond; bij het sluiten van het
+       tabblad kan dat te laat zijn. Daarom dan ook meteen een noodkopie in
+       localStorage, die bij de volgende start wordt teruggezet als hij nieuwer is. */
+    function noodkopie() {
+      var c = S.cursus;
+      if (!c || c.voorbeeld || (!Object.keys(S.vuil).length && !bezigMetBewaren)) return false;
+      try { ls('bouwer:nood', JSON.stringify(zonderSleutels(c))); } catch (e) { /* te groot voor localStorage */ }
+      return true;
+    }
+    window.addEventListener('beforeunload', function (e) {
+      if (!noodkopie()) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+    window.addEventListener('pagehide', function () {
+      noodkopie();
+      if (Object.keys(S.vuil).length) bewaarNu();
+    });
   }
 
   /* Een blok of module toevoegen, verplaatsen of verwijderen is één stap bij
@@ -5040,7 +5224,24 @@
 
   cap('sample').then(function (s) { S.sample = s; if (s) { renderStructuur(); renderEditor(); } });
 
-  Opslag.start().then(function () { Bieb.lijst = null; return Opslag.lijst(); }).then(function (lijst) {
+  /* Een noodkopie van het vorige sluiten terugzetten als die nieuwer is dan wat er bewaard is. */
+  function herstelNood() {
+    var n = null;
+    try { n = JSON.parse(ls('bouwer:nood') || 'null'); } catch (e) { n = null; }
+    if (!n || !n.id || !Array.isArray(n.lessons)) return Promise.resolve();
+    var bewaard = null;
+    try { bewaard = JSON.parse(Lokaal.lees('bouwer:c:' + n.id) || 'null'); } catch (e) { bewaard = null; }
+    var nieuwer = !bewaard || (n.updatedAt || 0) > (bewaard.updatedAt || 0);
+    var klaar = nieuwer ? Opslag.bewaar(n, { '*': 1 }, []).then(function (p) { return p !== 'fout'; }) : Promise.resolve(true);
+    return klaar.then(function (ok) {
+      if (!ok) return;
+      try { ls('bouwer:nood', null); } catch (e) { /* niets */ }
+      /* Ook het bestand in de opslagmap bijwerken zodra de e-learning open is. */
+      if (nieuwer) setTimeout(function () { melding('Je laatste wijzigingen van vlak voor het sluiten zijn teruggezet.'); Bestand.naBewaren(); }, 800);
+    }).catch(function () { /* de noodkopie blijft staan voor een volgende poging */ });
+  }
+
+  Opslag.start().then(function () { Bieb.lijst = null; return herstelNood(); }).then(function () { return Opslag.lijst(); }).then(function (lijst) {
     S.lijst = lijst;
     var laatste = ls('bouwer:laatste');
     var doel = lijst.find(function (x) { return x.id === laatste; }) || lijst[0];
