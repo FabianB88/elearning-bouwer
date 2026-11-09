@@ -1975,6 +1975,7 @@
       lijst,
       h('div', { class: 'knoprij' },
         h('button', { type: 'button', class: 'knop klein', onclick: nieuweModule }, ico('plus'), 'Module'),
+        h('button', { type: 'button', class: 'knop klein', onclick: dialoogModuleKopie }, ico('kopie'), 'Uit andere e-learning'),
         S.sample ? h('button', { type: 'button', class: 'knop klein claude', onclick: dialoogModule }, ico('ster'), 'Module met Claude') : null));
 
     var beheer = h('div', { class: 'sectie' },
@@ -2322,11 +2323,13 @@
   /* soort: 'standaard', 'alles' of 'sjablonen'. Zonder soort opent de kiezer
      met de laatst gekozen blokken; sjablonen kies je steeds bewust. */
   function openPalet(naIndex, soort) {
-    if (soort === undefined && S.paletSoort === 'sjablonen') soort = ls('bouwer:palet') === 'alles' ? 'alles' : 'standaard';
+    if (soort === undefined && (S.paletSoort === 'sjablonen' || S.paletSoort === 'bieb')) soort = ls('bouwer:palet') === 'alles' ? 'alles' : 'standaard';
     if (soort !== undefined) {
       S.paletSoort = soort;
-      if (soort !== 'sjablonen') { try { ls('bouwer:palet', soort === 'alles' ? 'alles' : null); } catch (e) { /* geen opslag */ } }
+      if (soort === 'standaard' || soort === 'alles') { try { ls('bouwer:palet', soort === 'alles' ? 'alles' : null); } catch (e) { /* geen opslag */ } }
     }
+    /* Mijn blokken komt uit de opslag; daarna de kiezer opnieuw tekenen. */
+    if (S.paletSoort === 'bieb' && !Bieb.lijst) Bieb.laad().then(function () { if (S.paletSoort === 'bieb' && S.paletNa !== null) renderEditor(); });
     S.paletNa = naIndex;
     renderEditor();
     var p = $('.palet');
@@ -2345,11 +2348,16 @@
       return h('button', { type: 'button', 'aria-pressed': S.paletSoort === waarde ? 'true' : 'false', onclick: function () { if (S.paletSoort !== waarde) openPalet(naIndex, waarde); } }, tekst);
     }
     var sjablonen = S.paletSoort === 'sjablonen';
-    var p = h('div', { class: 'palet', role: 'dialog', 'aria-label': sjablonen ? 'Kies een sjabloon' : 'Kies een blok' },
+    var titel = sjablonen ? 'Kies een sjabloon' : S.paletSoort === 'bieb' ? 'Mijn blokken' : 'Kies een blok';
+    var p = h('div', { class: 'palet', role: 'dialog', 'aria-label': titel },
       h('div', { class: 'palet-kop' },
-        h('strong', { style: 'font-family:var(--f-kop)' }, sjablonen ? 'Kies een sjabloon' : 'Kies een blok'),
-        h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Wat wil je toevoegen' }, soort('standaard', 'Standaard'), soort('alles', 'Alle blokken'), soort('sjablonen', 'Sjablonen')),
+        h('strong', { style: 'font-family:var(--f-kop)' }, titel),
+        h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Wat wil je toevoegen' }, soort('standaard', 'Standaard'), soort('alles', 'Alle blokken'), soort('sjablonen', 'Sjablonen'), soort('bieb', 'Mijn blokken')),
         icoonknop('kruis', 'Sluiten', function () { S.paletNa = null; renderEditor(); })));
+    if (S.paletSoort === 'bieb') {
+      p.append(biebKnoppen(naIndex));
+      return p;
+    }
     if (sjablonen) {
       p.append(h('p', { class: 'hulp', style: 'margin:0', text: 'Een sjabloon zet een complete, afwisselende opbouw klaar: tekst, video, beeld en vragen, met aanwijzingen (✎) die jij vervangt door je eigen inhoud. '
         + (moduleIsLeeg(les()) ? 'Deze lege module wordt ermee gevuld.' : 'De blokken komen op deze plek in de module.') }), sjabloonKaarten(naIndex));
@@ -2442,6 +2450,7 @@
         gewijzigd(l.id); renderEditor(); renderStructuur();
       } },
       S.cursus.lessons.length > 1 ? { tekst: 'Naar een andere module…', ico: 'verplaats', doe: function () { dialoogVerplaats(l, b); } } : null,
+      { tekst: 'Bewaren in Mijn blokken…', ico: 'schijf', doe: function () { dialoogBieb(b); } },
       om.length ? '-' : null,
       om.length ? { kop: 'Omzetten naar' } : null
     ].concat(om, [
@@ -2535,6 +2544,183 @@
     gewijzigd(kopie.id);
     kiesModule(kopie.id);
     melding('Module gedupliceerd.');
+  }
+
+  /* ================================================================ hergebruik */
+
+  /* Modules uit een andere e-learning (of het voorbeeld) kopiëren. Het
+     origineel verandert niet; de kopie krijgt eigen id's. */
+  function dialoogModuleKopie() {
+    dialoog(function (sluit) {
+      var gekozen = [];
+      var bron = null;
+      var inhoud = h('div', { class: 'velden' }, h('p', { class: 'hulp', text: 'E-learnings laden…' }));
+      var kopieer = h('button', { type: 'button', class: 'knop primair', disabled: true, onclick: function () {
+        var nieuw = gekozen.map(function (l) {
+          var kopie = kloon(l);
+          kopie.id = nieuwId('m');
+          kopie.blocks.forEach(function (b) { b._k = nieuwId('b'); });
+          return kopie;
+        });
+        if (!nieuw.length) return;
+        sluit();
+        voegModulesToe(nieuw, bron.title);
+      } }, 'Kopiëren');
+
+      function werkKnop() {
+        kopieer.disabled = !gekozen.length;
+        kopieer.textContent = gekozen.length > 1 ? gekozen.length + ' modules kopiëren' : 'Kopiëren';
+      }
+
+      function toonModules(c, vak) {
+        bron = c;
+        gekozen = [];
+        werkKnop();
+        vak.innerHTML = '';
+        if (!c.lessons.length) { vak.append(h('p', { class: 'hulp', text: 'Deze e-learning heeft nog geen modules.' })); return; }
+        vak.append(h('div', { class: 'module-kies' }, c.lessons.map(function (l, i) {
+          var id = veldId();
+          var vink = h('input', { type: 'checkbox', id: id });
+          vink.addEventListener('change', function () {
+            if (vink.checked) gekozen.push(l); else gekozen = gekozen.filter(function (x) { return x !== l; });
+            werkKnop();
+          });
+          return h('label', { for: id, class: 'module-kies-regel' }, vink,
+            h('span', null, h('strong', { text: (i + 1) + '. ' + (l.title || 'Module ' + (i + 1)) }),
+              h('small', { text: l.blocks.length + ' blokken · ' + tijdTekst(studietijd(l)) })));
+        })));
+      }
+
+      Opslag.lijst().then(function (lijst) {
+        var andere = lijst.filter(function (x) { return x.id !== S.cursus.id; });
+        var vb = voorbeeldCursus().title;
+        andere.push({ id: '__voorbeeld', title: /voorbeeld/i.test(vb) ? vb : 'Voorbeeld: ' + vb });
+        var selId = veldId();
+        var sel = h('select', { id: selId }, h('option', { value: '' }, 'Kies een e-learning…'),
+          andere.map(function (x) { return h('option', { value: x.id }, x.title || 'Naamloze e-learning'); }));
+        var vak = h('div');
+        sel.addEventListener('change', function () {
+          var id = sel.value;
+          vak.innerHTML = '';
+          gekozen = [];
+          werkKnop();
+          if (!id) return;
+          vak.append(h('p', { class: 'hulp', text: 'Laden…' }));
+          var laden = id === '__voorbeeld' ? Promise.resolve(voorbeeldCursus()) : Opslag.laad(id).then(function (c) { return normaliseerCursus(c); });
+          laden.then(function (c) { if (sel.value === id) toonModules(c, vak); })
+            .catch(function () { vak.innerHTML = ''; vak.append(h('p', { class: 'fout', text: 'Deze e-learning kon niet worden geladen.' })); });
+        });
+        inhoud.innerHTML = '';
+        inhoud.append(h('div', { class: 'veld' }, h('label', { for: selId, text: 'Uit welke e-learning?' }), sel), vak);
+        sel.focus();
+      });
+
+      return [
+        h('h2', null, 'Module uit een andere e-learning'),
+        h('p', null, 'Kies een e-learning en vink de modules aan die je wilt overnemen. Ze komen onderaan deze e-learning als kopie; het origineel verandert niet.'),
+        inhoud,
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), kopieer)
+      ];
+    });
+  }
+
+  function voegModulesToe(nieuw, bronNaam) {
+    nieuw.forEach(function (l) { S.cursus.lessons.push(l); });
+    S.vuil['*'] = 1;
+    gewijzigd(nieuw[0].id);
+    kiesModule(nieuw[0].id);
+    melding((nieuw.length === 1 ? 'Module' : nieuw.length + ' modules') + ' gekopieerd uit ' + (bronNaam || 'een andere e-learning') + '.');
+  }
+
+  /* Mijn blokken: blokken die je vaker gebruikt, los van een e-learning. Met
+     een account staan ze in je eigen opslag, anders in deze browser. */
+  var Bieb = {
+    lijst: null,
+    lokaal: function () { try { return JSON.parse(ls('bouwer:bieb') || '[]'); } catch (e) { return []; } },
+    laad: function () {
+      if (Bieb.lijst) return Promise.resolve(Bieb.lijst);
+      if (Opslag.modus !== 'account') return Promise.resolve(Bieb.lijst = Bieb.lokaal());
+      return Opslag.col.where('kind', '==', 'bieb').get().then(function (snap) {
+        Bieb.lijst = snap.docs.map(function (d) { return d.data(); }).sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+        return Bieb.lijst;
+      }).catch(function () { return (Bieb.lijst = Bieb.lokaal()); });
+    },
+    bewaarLokaal: function () { ls('bouwer:bieb', JSON.stringify(Bieb.lijst)); },
+    voegToe: function (x) {
+      return Bieb.laad().then(function () {
+        if (JSON.stringify(x).length > 800000) throw new Error('te groot');
+        Bieb.lijst.unshift(x);
+        if (Opslag.modus === 'account') return Opslag.col.doc('bieb-' + x.id).set(x);
+        try { Bieb.bewaarLokaal(); } catch (e) { Bieb.lijst.shift(); throw e; }
+      });
+    },
+    weg: function (x) {
+      Bieb.lijst = Bieb.lijst.filter(function (y) { return y.id !== x.id; });
+      if (Opslag.modus === 'account') return Opslag.col.doc('bieb-' + x.id).delete();
+      Bieb.bewaarLokaal();
+      return Promise.resolve();
+    }
+  };
+
+  function dialoogBieb(b) {
+    var type = TYPES[b.t] || TYPES.text;
+    dialoog(function (sluit) {
+      var naamId = veldId();
+      var naam = h('input', { type: 'text', id: naamId, value: String(type.samenvatting(b) || type.naam).slice(0, 80) });
+      var fout = h('p', { class: 'fout', hidden: true });
+      function bewaar() {
+        var x = { kind: 'bieb', id: nieuwId('k'), naam: naam.value.trim() || type.naam, blok: zonderSleutels(b), at: Date.now() };
+        Bieb.voegToe(x).then(function () {
+          sluit();
+          melding('Bewaard in Mijn blokken. Je vindt het in de blokkenkiezer, ook in je andere e-learnings.');
+        }).catch(function (e) {
+          fout.hidden = false;
+          fout.textContent = e && e.message === 'te groot'
+            ? 'Dit blok is te groot om te bewaren, waarschijnlijk door grote afbeeldingen.'
+            : 'Bewaren lukte niet. Mogelijk is de opslag van de browser vol.';
+        });
+      }
+      naam.addEventListener('keydown', function (e) { if (e.key === 'Enter') bewaar(); });
+      return [
+        h('h2', null, 'Bewaren in Mijn blokken'),
+        h('p', null, 'Bewaar dit blok om het later in elke e-learning in te voegen, bijvoorbeeld een vaste introductie of een uitleg die je vaker gebruikt. ' + (Opslag.modus === 'account' ? 'Het staat in je eigen opslag.' : 'Het staat in deze browser.')),
+        h('div', { class: 'veld' }, h('label', { for: naamId, text: 'Naam' }), naam),
+        fout,
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), h('button', { type: 'button', class: 'knop primair', onclick: bewaar }, 'Bewaren'))
+      ];
+    });
+  }
+
+  function voegBiebIn(x, naIndex) {
+    var l = les();
+    var b = normaliseerBlok(kloon(x.blok));
+    if (!b) return;
+    var plek = naIndex === 'onder' ? l.blocks.length : naIndex + 1;
+    l.blocks.splice(plek, 0, b);
+    S.paletNa = null;
+    S.gekozenK = b._k;
+    gewijzigd(l.id);
+    renderEditor();
+    renderStructuur();
+    var k = kaarten[b._k];
+    if (k) k.kaart.scrollIntoView({ block: 'center' });
+  }
+
+  function biebKnoppen(naIndex) {
+    if (!Bieb.lijst) return h('p', { class: 'hulp', text: 'Laden…' });
+    if (!Bieb.lijst.length) return h('p', { class: 'hulp', style: 'margin:0', text: 'Nog leeg. Bewaar een blok via het menu ⋯ van dat blok, met "Bewaren in Mijn blokken". Je vindt het dan hier terug, ook in je andere e-learnings.' });
+    return h('div', { class: 'bieb-lijst' }, Bieb.lijst.map(function (x) {
+      var type = TYPES[x.blok && x.blok.t] || TYPES.text;
+      return h('div', { class: 'bieb-item' },
+        h('button', { type: 'button', class: 'bieb-kies', onclick: function () { voegBiebIn(x, naIndex); } },
+          ico(x.blok.t), h('strong', { text: x.naam }), h('small', { text: type.naam })),
+        icoonknop('weg', 'Verwijderen uit Mijn blokken', function () {
+          Bieb.weg(x).then(function () {
+            renderEditor();
+            melding('"' + x.naam + '" verwijderd uit Mijn blokken.', { tekst: 'Ongedaan maken', doe: function () { Bieb.voegToe(x).then(renderEditor); } });
+          });
+        }));
+    }));
   }
 
   function dialoogDeadline(l) {
@@ -4326,6 +4512,8 @@
   voegBlokIn = alsStap(voegBlokIn);
   nieuweModule = alsStap(nieuweModule);
   zetSjabloon = alsStap(zetSjabloon);
+  voegBiebIn = alsStap(voegBiebIn);
+  voegModulesToe = alsStap(voegModulesToe);
   verwijderModule = alsStap(verwijderModule);
   verplaatsNaar = alsStap(verplaatsNaar);
 
