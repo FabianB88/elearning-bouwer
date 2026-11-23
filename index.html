@@ -9742,6 +9742,8 @@ function Speler(root, cursus, opts) {
       k.style.display = nodig() ? '' : 'none';
       /* Zolang de knop er staat, zegt die al waar het werk staat: de status krimpt tot een stip. */
       document.body.classList.toggle('autosave-nodig', !!nodig());
+      var st = document.getElementById('status');
+      if (st) st.title = nodig() ? (M.map ? 'Klik om automatisch opslaan te hervatten' : 'Klik om automatisch opslaan in te stellen') : 'Waar staat mijn werk?';
       k.querySelector('.lang').textContent = M.map ? 'Automatisch opslaan hervatten' : 'Automatisch opslaan instellen';
       k.querySelector('.kort').textContent = M.map ? 'Opslaan hervatten' : 'Opslaan instellen';
       k.setAttribute('aria-label', M.map ? 'Automatisch opslaan hervatten' : 'Automatisch opslaan instellen');
@@ -10031,7 +10033,10 @@ function Speler(root, cursus, opts) {
     $('#knop-terug').addEventListener('click', function () { Geschiedenis.terug(); });
     $('#knop-vooruit').addEventListener('click', function () { Geschiedenis.vooruit(); });
     $('#knop-opslaan').addEventListener('click', function () { Bestand.opslaan(); });
-    $('#status').addEventListener('click', dialoogBewaren);
+    /* Staat automatisch opslaan nog niet aan, dan regelt een klik op de waarschuwing het meteen. */
+    $('#status').addEventListener('click', function () {
+      if (document.body.classList.contains('autosave-nodig')) Bestand.mapKnop(); else dialoogBewaren();
+    });
     $('#knop-autosave').addEventListener('click', function () { Bestand.mapKnop(); });
     $('#rechts-voorbeeld').addEventListener('click', function () { zetRechts('voorbeeld'); });
     $('#rechts-blokken').addEventListener('click', function () { zetRechts('blokken'); });
