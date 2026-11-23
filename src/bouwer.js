@@ -2285,6 +2285,8 @@
         return [
           { tekst: l.deadline ? 'Afronden vóór wijzigen…' : 'Afronden vóór instellen…', ico: 'datum', doe: function () { dialoogDeadline(l); } },
           { tekst: 'Sjabloon toevoegen…', ico: 'steps', doe: function () { openPalet(moduleIsLeeg(l) ? -1 : 'onder', 'sjablonen'); } },
+          { tekst: 'Vragen in bulk…', ico: 'quiz', doe: function () { dialoogBulk('onder'); } },
+          { tekst: 'Blokken bewaren als set…', ico: 'schijf', uit: !l.blocks.length, doe: function () { dialoogSet(l); } },
           { tekst: 'Module dupliceren', ico: 'kopie', doe: function () { dupliceerModule(l); } },
           '-',
           { tekst: 'Module verwijderen…', ico: 'weg', gevaar: true, doe: function () { dialoogVerwijderModule(l); } }
@@ -2486,6 +2488,7 @@
     vak.append(h('div', { class: 'paneel-kop' },
       h('p', { class: 'hulp', text: geenModule ? 'Maak eerst een module; daarna sleep je hier blokken in.' : 'Sleep een blok naar de plek in de editor, of klik om het toe te voegen onder het gekozen blok.' }),
       h('button', { type: 'button', class: 'knop-tekst', onclick: function () { paneelAanpassen = true; renderBlokkenPaneel(); } }, 'Aanpassen')));
+    if (!geenModule) vak.append(h('button', { type: 'button', class: 'knop klein bulk-knop', onclick: function () { dialoogBulk(); } }, ico('quiz'), 'Vragen in bulk…'));
     vak.append(x.blokken.length
       ? h('div', { class: 'tegels' }, x.blokken.map(function (k) { var n = paletNaam(k); return tegel({ soort: 'blok', waarde: k }, n.ico, n.naam, n.uitleg); }))
       : h('p', { class: 'hulp', text: 'Er staan geen blokken in je paneel. Kies ze onder Aanpassen.' }));
@@ -2495,8 +2498,7 @@
       if (!Bieb.lijst) { biebVak.append(h('p', { class: 'hulp', text: 'Laden…' })); Bieb.laad().then(renderBlokkenPaneel); }
       else if (!Bieb.lijst.length) biebVak.append(h('p', { class: 'hulp', text: 'Nog leeg. Bewaar een blok via ⋯ en "Bewaren in Mijn blokken".' }));
       else biebVak.append(h('div', { class: 'tegels' }, Bieb.lijst.map(function (b) {
-        var type = TYPES[b.blok && b.blok.t] || TYPES.text;
-        return tegel({ soort: 'bieb', waarde: b }, b.blok.t, b.naam, type.naam);
+        return tegel({ soort: 'bieb', waarde: b }, biebIcoon(b), b.naam, biebSoort(b));
       })));
       vak.append(biebVak);
     }
@@ -2545,11 +2547,14 @@
     }
     if (S.paletSoort === 'standaard') {
       p.append(h('div', { class: 'palet-knoppen' }, STANDAARD.map(knop)),
-        h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { openPalet(naIndex, 'alles'); } }, 'Meer soorten: tabbladen, kaartjes, scenario, koppelvraag…'));
+        h('div', { class: 'knoprij' },
+          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { openPalet(naIndex, 'alles'); } }, 'Meer soorten: tabbladen, kaartjes, scenario, koppelvraag…'),
+          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { S.paletNa = null; renderEditor(); dialoogBulk(naIndex); } }, 'Vragen in bulk…')));
       return p;
     }
     PALET.forEach(function (g) {
-      p.append(h('div', { class: 'palet-groep' }, h('h3', null, g.groep), h('div', { class: 'palet-knoppen' }, g.items.map(knop))));
+      p.append(h('div', { class: 'palet-groep' }, h('h3', null, g.groep), h('div', { class: 'palet-knoppen' }, g.items.map(knop)),
+        g.groep === 'Vragen' ? h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { S.paletNa = null; renderEditor(); dialoogBulk(naIndex); } }, 'Meerdere vragen tegelijk: Vragen in bulk…') : null));
     });
     return p;
   }
@@ -2872,29 +2877,217 @@
     });
   }
 
-  function voegBiebIn(x, naIndex) {
+  /* Een item in Mijn blokken is één blok (blok) of een set (blokken). */
+  function biebBlokken(x) { return Array.isArray(x.blokken) ? x.blokken : x.blok ? [x.blok] : []; }
+  function biebIcoon(x) { return Array.isArray(x.blokken) ? 'kopie' : (x.blok && x.blok.t) || 'text'; }
+  function biebSoort(x) {
+    if (Array.isArray(x.blokken)) return 'Set van ' + aantal(x.blokken.length, '1 blok', 'blokken');
+    return (TYPES[x.blok && x.blok.t] || TYPES.text).naam;
+  }
+
+  /* Meerdere blokken tegelijk op één plek; ongedaan maken in één stap. */
+  function voegBlokkenIn(lijst, naIndex) {
     var l = les();
-    var b = normaliseerBlok(kloon(x.blok));
-    if (!b) return;
+    var blokken = lijst.map(function (b) { return normaliseerBlok(kloon(b)); }).filter(Boolean);
+    if (!l || !blokken.length) return 0;
     var plek = naIndex === 'onder' ? l.blocks.length : naIndex + 1;
-    l.blocks.splice(plek, 0, b);
+    l.blocks.splice.apply(l.blocks, [plek, 0].concat(blokken));
     S.paletNa = null;
-    S.gekozenK = b._k;
+    S.gekozenK = blokken[0]._k;
     gewijzigd(l.id);
     renderEditor();
     renderStructuur();
-    var k = kaarten[b._k];
-    if (k) k.kaart.scrollIntoView({ block: 'center' });
+    var k = kaarten[blokken[0]._k];
+    if (k) k.kaart.scrollIntoView({ block: blokken.length > 1 ? 'start' : 'center' });
+    return blokken.length;
+  }
+
+  function voegBiebIn(x, naIndex) {
+    var n = voegBlokkenIn(biebBlokken(x), naIndex);
+    if (n > 1) melding(aantal(n, '1 blok', 'blokken') + ' uit "' + x.naam + '" toegevoegd.');
+  }
+
+  /* Blokken uit deze module samen bewaren als één set in Mijn blokken. */
+  function dialoogSet(l) {
+    dialoog(function (sluit) {
+      var gekozen = l.blocks.map(function (b) { return b.t !== 'continue'; });
+      var vinkjes = [];
+      var naamId = veldId();
+      var naam = h('input', { type: 'text', id: naamId, value: (l.title || 'Module') + ' (set)' });
+      var fout = h('p', { class: 'fout', hidden: true });
+      var knop = h('button', { type: 'button', class: 'knop primair' }, 'Bewaren');
+      function werk() {
+        var n = gekozen.filter(Boolean).length;
+        knop.disabled = !n;
+        knop.textContent = n ? 'Bewaren (' + aantal(n, '1 blok', 'blokken') + ')' : 'Bewaren';
+      }
+      var regels = l.blocks.map(function (b, i) {
+        var type = TYPES[b.t] || TYPES.text;
+        var id = veldId();
+        var v = h('input', { type: 'checkbox', id: id, checked: gekozen[i] });
+        vinkjes.push(v);
+        v.addEventListener('change', function () { gekozen[i] = v.checked; werk(); });
+        return h('label', { for: id, class: 'module-kies-regel' }, v,
+          h('span', null, h('strong', { text: type.naam }), h('small', { text: String(type.samenvatting(b) || '').slice(0, 90) })));
+      });
+      function allemaal(aan) { vinkjes.forEach(function (v, i) { v.checked = aan; gekozen[i] = aan; }); werk(); }
+      knop.addEventListener('click', function () {
+        var blokken = l.blocks.filter(function (b, i) { return gekozen[i]; }).map(zonderSleutels);
+        var x = { kind: 'bieb', id: nieuwId('k'), naam: naam.value.trim() || 'Set', at: Date.now() };
+        if (blokken.length === 1) x.blok = blokken[0]; else x.blokken = blokken;
+        Bieb.voegToe(x).then(function () {
+          sluit();
+          renderBlokkenPaneel();
+          melding('"' + x.naam + '" bewaard in Mijn blokken. Sleep de set vanuit het blokkenpaneel in elke e-learning.');
+        }).catch(function (e) {
+          fout.hidden = false;
+          fout.textContent = e && e.message === 'te groot' ? 'Deze set is te groot, waarschijnlijk door grote afbeeldingen. Kies minder blokken.' : 'Bewaren lukte niet.';
+        });
+      });
+      werk();
+      return [
+        h('h2', null, 'Blokken bewaren als set'),
+        h('p', null, 'Vink de blokken aan die je samen wilt bewaren, bijvoorbeeld een reeks vragen. De set komt in Mijn blokken en sleep je in één keer in elke e-learning.'),
+        h('div', { class: 'knoprij' },
+          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { allemaal(true); } }, 'Alles'),
+          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { allemaal(false); } }, 'Niets'),
+          h('button', { type: 'button', class: 'knop-tekst', onclick: function () {
+            vinkjes.forEach(function (v, i) { var vraag = ['quiz', 'match', 'sort', 'fill', 'open'].indexOf(l.blocks[i].t) >= 0; v.checked = vraag; gekozen[i] = vraag; }); werk();
+          } }, 'Alleen vragen')),
+        h('div', { class: 'module-kies' }, regels),
+        h('div', { class: 'veld' }, h('label', { for: naamId, text: 'Naam van de set' }), naam),
+        fout,
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), knop)
+      ];
+    });
+  }
+
+  /* ---------------------------------------------------------- vragen in bulk */
+
+  /* Vragen als gewone tekst: één vraag per alinea, antwoorden met * (goed) of
+     - (fout), en eventueel een regel "Uitleg:". Zonder antwoorden wordt het
+     een invulvraag (met [haken]) of een open vraag. */
+  var BULK_VOORBEELD = '1. Welke strategie houdt een product het langst in gebruik?\n'
+    + '* Hergebruik\n- Recycling\n- Verbranden met energieterugwinning\n'
+    + 'Uitleg: Hoe hoger op de R-ladder, hoe meer waarde behouden blijft.\n\n'
+    + '2. Welke twee horen bij circulair ontwerpen?\n* Modulair ontwerp\n* Repareerbaarheid\n- Zo goedkoop mogelijk produceren\n\n'
+    + '3. Bij [recycling] wordt een product teruggebracht tot grondstof.\n\n'
+    + '4. Hoe zie je circulaire economie terug bij je stagebedrijf?';
+
+  function leesBulk(tekst) {
+    var vragen = [], huidig = null;
+    var NUMMER = /^(\d+\s*[.)]|vraag\s*\d*\s*[:.)])\s*/i;
+    function nieuw() { huidig = { vraag: [], opties: [], uitleg: [] }; vragen.push(huidig); }
+    String(tekst || '').replace(/\r/g, '').split('\n').forEach(function (regel) {
+      var t = regel.trim(), m;
+      if (!t) { huidig = null; return; }
+      if ((m = t.match(/^[*+✓✔]\s*(.+)$/))) { if (!huidig) nieuw(); huidig.opties.push({ text: m[1].trim(), correct: true }); return; }
+      if ((m = t.match(/^[-–—]\s*(.+)$/))) { if (!huidig) nieuw(); huidig.opties.push({ text: m[1].trim(), correct: false }); return; }
+      if ((m = t.match(/^(uitleg|feedback|toelichting)\s*:\s*(.*)$/i))) { if (huidig) huidig.uitleg.push(m[2].trim()); return; }
+      /* Nieuwe vraag: na een lege regel, of een genummerde regel na antwoorden. */
+      if (!huidig || huidig.opties.length || huidig.uitleg.length || (NUMMER.test(t) && huidig.vraag.length)) nieuw();
+      huidig.vraag.push(t.replace(NUMMER, ''));
+    });
+    return vragen.filter(function (v) { return v.vraag.length || v.opties.length; }).map(function (v) {
+      var vraag = v.vraag.join(' ').trim();
+      var uitleg = v.uitleg.join(' ').trim();
+      var goed = v.opties.filter(function (o) { return o.correct; }).length;
+      var problemen = [];
+      var blok;
+      if (v.opties.length) {
+        blok = { t: 'quiz', multi: goed > 1, question: vraag, options: v.opties, feedback: uitleg };
+        if (v.opties.length < 2) problemen.push('minstens twee antwoorden nodig');
+        if (!goed) problemen.push('geen juist antwoord: zet een * voor het goede antwoord');
+      } else if (/\[[^\]]+\]/.test(vraag)) {
+        blok = { t: 'fill', question: '', text: vraag, feedback: uitleg };
+      } else {
+        blok = { t: 'open', question: vraag, hint: '', feedback: uitleg };
+      }
+      if (!vraag) problemen.push('geen vraagtekst');
+      return { blok: blok, problemen: problemen };
+    });
+  }
+
+  function bulkSoort(b) {
+    if (b.t === 'quiz') return (b.multi ? 'Meerdere antwoorden' : 'Meerkeuze') + ' · ' + b.options.length + ' antwoorden';
+    if (b.t === 'fill') return 'Invulvraag';
+    return 'Open vraag';
+  }
+
+  function dialoogBulk(naIndex) {
+    if (!les()) { melding('Maak eerst een module.'); return; }
+    var plek = naIndex === undefined ? klikPlek() : naIndex;
+    dialoog(function (sluit) {
+      var vak = h('textarea', { id: 'bulk-tekst', rows: 12, placeholder: BULK_VOORBEELD, spellcheck: 'true' });
+      var overzicht = h('div', { class: 'bulk-overzicht' });
+      var knop = h('button', { type: 'button', class: 'knop primair', disabled: true }, 'Toevoegen');
+      var bewaarVink = h('input', { type: 'checkbox', id: 'bulk-bewaar' });
+      var naam = h('input', { type: 'text', id: 'bulk-naam', placeholder: 'Bijvoorbeeld: Toetsvragen R-ladder', hidden: true });
+      var resultaat = [];
+      bewaarVink.addEventListener('change', function () { naam.hidden = !bewaarVink.checked; if (bewaarVink.checked) naam.focus(); });
+      function werk() {
+        resultaat = leesBulk(vak.value);
+        overzicht.innerHTML = '';
+        if (!resultaat.length) {
+          overzicht.append(h('p', { class: 'hulp', text: 'Typ of plak je vragen hierboven. Rechts van elke vraag zie je hier wat de bouwer ervan maakt.' }));
+        } else {
+          var fouten = resultaat.filter(function (x) { return x.problemen.length; }).length;
+          overzicht.append(h('p', { class: fouten ? 'fout' : 'herkend', text: aantal(resultaat.length, '1 vraag', 'vragen') + ' herkend' + (fouten ? '; bij ' + aantal(fouten, '1 vraag', 'vragen') + ' klopt nog iets niet (je kunt ze ook na het toevoegen aanpassen).' : '.') }));
+          overzicht.append(h('ol', { class: 'bulk-lijst' }, resultaat.map(function (x) {
+            var b = x.blok;
+            var tekst = b.t === 'fill' ? b.text : b.question;
+            return h('li', { class: x.problemen.length ? 'let' : '' },
+              h('strong', { text: bulkSoort(b) }), ' ', h('span', { text: String(tekst || '').slice(0, 90) }),
+              x.problemen.length ? h('small', { text: x.problemen.join('; ') }) : null);
+          })));
+        }
+        knop.disabled = !resultaat.length;
+        knop.textContent = resultaat.length ? aantal(resultaat.length, '1 vraag', 'vragen') + ' toevoegen' : 'Toevoegen';
+      }
+      vak.addEventListener('input', werk);
+      knop.addEventListener('click', function () {
+        var blokken = resultaat.map(function (x) { return x.blok; });
+        var bewaren = bewaarVink.checked;
+        var setNaam = naam.value.trim() || 'Vragen ' + new Date().toLocaleDateString('nl-NL');
+        sluit();
+        var n = voegBlokkenIn(blokken, plek);
+        if (bewaren) {
+          var x = { kind: 'bieb', id: nieuwId('k'), naam: setNaam, at: Date.now(), blokken: blokken.map(function (b) { return zonderSleutels(normaliseerBlok(kloon(b))); }) };
+          Bieb.voegToe(x).then(function () {
+            renderBlokkenPaneel();
+            melding(aantal(n, '1 vraag', 'vragen') + ' toegevoegd en bewaard als "' + setNaam + '" in Mijn blokken.');
+          }).catch(function () { melding(aantal(n, '1 vraag', 'vragen') + ' toegevoegd; bewaren in Mijn blokken lukte niet.'); });
+        } else melding(aantal(n, '1 vraag', 'vragen') + ' toegevoegd. Controleren wijst aan wat nog ontbreekt, zoals uitleg na het nakijken.');
+      });
+      werk();
+      return [
+        h('h2', null, 'Vragen in bulk'),
+        h('p', null, 'Typ of plak meerdere vragen tegelijk. De bouwer maakt er in één keer blokken van.'),
+        h('details', { class: 'bulk-uitleg' },
+          h('summary', { text: 'Zo schrijf je de vragen' }),
+          h('ul', null,
+            h('li', null, 'Eén vraag per alinea; zet een lege regel tussen de vragen. Nummers zoals "1." mogen.'),
+            h('li', null, 'Antwoorden op een eigen regel: ', h('strong', { text: '*' }), ' voor een goed antwoord, ', h('strong', { text: '-' }), ' voor een fout antwoord. Meer dan één * maakt een vraag met meerdere goede antwoorden.'),
+            h('li', null, 'Een regel die begint met ', h('strong', { text: 'Uitleg:' }), ' wordt de uitleg na het nakijken.'),
+            h('li', null, 'Geen antwoorden maar woorden tussen [haken]: een invulvraag. Geen antwoorden en geen haken: een open vraag.')),
+          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { vak.value = BULK_VOORBEELD; werk(); vak.focus(); } }, 'Voorbeeld invullen')),
+        vak,
+        overzicht,
+        h('div', { class: 'velden' },
+          h('label', { class: 'schakel', for: 'bulk-bewaar' }, bewaarVink, 'Ook bewaren als set in Mijn blokken, om in andere e-learnings te slepen'),
+          naam),
+        h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), knop)
+      ];
+    });
   }
 
   function biebKnoppen(naIndex) {
     if (!Bieb.lijst) return h('p', { class: 'hulp', text: 'Laden…' });
     if (!Bieb.lijst.length) return h('p', { class: 'hulp', style: 'margin:0', text: 'Nog leeg. Bewaar een blok via het menu ⋯ van dat blok, met "Bewaren in Mijn blokken". Je vindt het dan hier terug, ook in je andere e-learnings.' });
     return h('div', { class: 'bieb-lijst' }, Bieb.lijst.map(function (x) {
-      var type = TYPES[x.blok && x.blok.t] || TYPES.text;
       return h('div', { class: 'bieb-item' },
         h('button', { type: 'button', class: 'bieb-kies', onclick: function () { voegBiebIn(x, naIndex); } },
-          ico(x.blok.t), h('strong', { text: x.naam }), h('small', { text: type.naam })),
+          ico(biebIcoon(x)), h('strong', { text: x.naam }), h('small', { text: biebSoort(x) })),
         icoonknop('weg', 'Verwijderen uit Mijn blokken', function () {
           Bieb.weg(x).then(function () {
             renderEditor();
@@ -5555,6 +5748,7 @@
   nieuweModule = alsStap(nieuweModule);
   zetSjabloon = alsStap(zetSjabloon);
   voegBiebIn = alsStap(voegBiebIn);
+  voegBlokkenIn = alsStap(voegBlokkenIn);
   voegModulesToe = alsStap(voegModulesToe);
   verwijderModule = alsStap(verwijderModule);
   verplaatsNaar = alsStap(verplaatsNaar);
