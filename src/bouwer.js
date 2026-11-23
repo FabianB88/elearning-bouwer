@@ -2285,7 +2285,7 @@
         return [
           { tekst: l.deadline ? 'Afronden vóór wijzigen…' : 'Afronden vóór instellen…', ico: 'datum', doe: function () { dialoogDeadline(l); } },
           { tekst: 'Sjabloon toevoegen…', ico: 'steps', doe: function () { openPalet(moduleIsLeeg(l) ? -1 : 'onder', 'sjablonen'); } },
-          { tekst: 'Vragen in bulk…', ico: 'quiz', doe: function () { dialoogBulk('onder'); } },
+          { tekst: 'Bulk invoeren…', ico: 'quiz', doe: function () { dialoogBulk('onder'); } },
           { tekst: 'Blokken bewaren als set…', ico: 'schijf', uit: !l.blocks.length, doe: function () { dialoogSet(l); } },
           { tekst: 'Module dupliceren', ico: 'kopie', doe: function () { dupliceerModule(l); } },
           '-',
@@ -2488,7 +2488,7 @@
     vak.append(h('div', { class: 'paneel-kop' },
       h('p', { class: 'hulp', text: geenModule ? 'Maak eerst een module; daarna sleep je hier blokken in.' : 'Sleep een blok naar de plek in de editor, of klik om het toe te voegen onder het gekozen blok.' }),
       h('button', { type: 'button', class: 'knop-tekst', onclick: function () { paneelAanpassen = true; renderBlokkenPaneel(); } }, 'Aanpassen')));
-    if (!geenModule) vak.append(h('button', { type: 'button', class: 'knop klein bulk-knop', onclick: function () { dialoogBulk(); } }, ico('quiz'), 'Vragen in bulk…'));
+    if (!geenModule) vak.append(h('button', { type: 'button', class: 'knop klein bulk-knop', onclick: function () { dialoogBulk(); } }, ico('quiz'), 'Bulk invoeren…'));
     vak.append(x.blokken.length
       ? h('div', { class: 'tegels' }, x.blokken.map(function (k) { var n = paletNaam(k); return tegel({ soort: 'blok', waarde: k }, n.ico, n.naam, n.uitleg); }))
       : h('p', { class: 'hulp', text: 'Er staan geen blokken in je paneel. Kies ze onder Aanpassen.' }));
@@ -2549,12 +2549,12 @@
       p.append(h('div', { class: 'palet-knoppen' }, STANDAARD.map(knop)),
         h('div', { class: 'knoprij' },
           h('button', { type: 'button', class: 'knop-tekst', onclick: function () { openPalet(naIndex, 'alles'); } }, 'Meer soorten: tabbladen, kaartjes, scenario, koppelvraag…'),
-          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { S.paletNa = null; renderEditor(); dialoogBulk(naIndex); } }, 'Vragen in bulk…')));
+          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { S.paletNa = null; renderEditor(); dialoogBulk(naIndex); } }, 'Meerdere blokken tegelijk: Bulk invoeren…')));
       return p;
     }
     PALET.forEach(function (g) {
       p.append(h('div', { class: 'palet-groep' }, h('h3', null, g.groep), h('div', { class: 'palet-knoppen' }, g.items.map(knop)),
-        g.groep === 'Vragen' ? h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { S.paletNa = null; renderEditor(); dialoogBulk(naIndex); } }, 'Meerdere vragen tegelijk: Vragen in bulk…') : null));
+        g.groep === 'Vragen' ? h('button', { type: 'button', class: 'knop-tekst', style: 'justify-self:start', onclick: function () { S.paletNa = null; renderEditor(); dialoogBulk(naIndex); } }, 'Meerdere vragen of blokken tegelijk: Bulk invoeren…') : null));
     });
     return p;
   }
@@ -2967,12 +2967,36 @@
   /* Vragen als gewone tekst: één vraag per alinea, antwoorden met * (goed) of
      - (fout), en eventueel een regel "Uitleg:". Zonder antwoorden wordt het
      een invulvraag (met [haken]) of een open vraag. */
-  var BULK_VOORBEELD = '1. Welke strategie houdt een product het langst in gebruik?\n'
-    + '* Hergebruik\n- Recycling\n- Verbranden met energieterugwinning\n'
-    + 'Uitleg: Hoe hoger op de R-ladder, hoe meer waarde behouden blijft.\n\n'
-    + '2. Welke twee horen bij circulair ontwerpen?\n* Modulair ontwerp\n* Repareerbaarheid\n- Zo goedkoop mogelijk produceren\n\n'
-    + '3. Bij [recycling] wordt een product teruggebracht tot grondstof.\n\n'
-    + '4. Hoe zie je circulaire economie terug bij je stagebedrijf?';
+  var BULK_VOORBEELD = [
+    '@tekst Wat is de R-ladder?',
+    'De R-ladder zet strategieën op een rij, van **weigeren** tot **terugwinnen**.',
+    '',
+    'Hoe hoger op de ladder, hoe meer waarde een product behoudt.',
+    '',
+    '@kaartjes',
+    'Refuse = Een product niet nodig hebben of weigeren',
+    'Repair = Een kapot product weer laten werken',
+    'Recycle = Materialen terugwinnen als grondstof',
+    '',
+    '@tip',
+    'Begin bij de bovenste treden: daar valt de meeste winst te halen.',
+    '',
+    '@doorgaan',
+    '',
+    '@vraag',
+    'Welke strategie houdt een product het langst in gebruik?',
+    '* Hergebruik',
+    '- Recycling',
+    '- Verbranden met energieterugwinning',
+    'Uitleg: Hoe hoger op de R-ladder, hoe meer waarde behouden blijft.',
+    '',
+    '@koppel Koppel elke strategie aan een voorbeeld.',
+    'Repair = Een telefoonscherm laten vervangen',
+    'Recycle = Petflessen vermalen tot nieuwe vezels',
+    'Refuse = Geen plastic tas aannemen',
+    '',
+    '@open Hoe zie je de R-ladder terug bij je stagebedrijf?'
+  ].join('\n');
 
   function leesBulk(tekst) {
     var vragen = [], huidig = null;
@@ -3008,77 +3032,350 @@
     });
   }
 
-  function bulkSoort(b) {
-    if (b.t === 'quiz') return (b.multi ? 'Meerdere antwoorden' : 'Meerkeuze') + ' · ' + b.options.length + ' antwoorden';
-    if (b.t === 'fill') return 'Invulvraag';
-    return 'Open vraag';
+  /* Waarom een vraag zonder label een bepaalde soort wordt. */
+  function bulkReden(b) {
+    if (b.t === 'quiz') {
+      var goed = b.options.filter(function (o) { return o.correct; }).length;
+      if (!goed) return 'want er staan antwoorden onder, maar geen enkel antwoord heeft een *';
+      return goed > 1 ? 'want ' + goed + ' antwoorden hebben een * (goed)' : 'want 1 antwoord heeft een * (goed) en de rest een -';
+    }
+    if (b.t === 'fill') return 'want er staan geen antwoorden onder en wel woorden tussen [haken]: ' + invulPlekken(b.text).join(', ');
+    return 'want er staan geen antwoorden onder en geen woorden tussen [haken]';
+  }
+
+  /* ---------------------------------------------------------- bulk invoeren */
+
+  /* Eenvoudige opmaak in bulktekst: **vet**. */
+  function bulkOpmaak(t) { return esc(String(t || '').trim()).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); }
+
+  /* Regels naar alinea's en opsommingen: lege regel = nieuwe alinea, - of 1. = lijstpunt. */
+  function bulkHtml(regels) {
+    var uit = '', alinea = [], lijst = null;
+    function sluitAlinea() { if (alinea.length) { uit += '<p>' + bulkOpmaak(alinea.join(' ')) + '</p>'; alinea = []; } }
+    function sluitLijst() {
+      if (!lijst) return;
+      uit += '<' + lijst.soort + '>' + lijst.items.map(function (i) { return '<li>' + bulkOpmaak(i) + '</li>'; }).join('') + '</' + lijst.soort + '>';
+      lijst = null;
+    }
+    regels.forEach(function (rg) {
+      var t = rg.trim(), m;
+      if (!t) { sluitAlinea(); sluitLijst(); return; }
+      if ((m = t.match(/^[-•–]\s+(.+)$/)) || (m = t.match(/^\d+[.)]\s+(.+)$/))) {
+        var soort = /^\d/.test(t) ? 'ol' : 'ul';
+        sluitAlinea();
+        if (!lijst || lijst.soort !== soort) { sluitLijst(); lijst = { soort: soort, items: [] }; }
+        lijst.items.push(m[1]);
+        return;
+      }
+      sluitLijst();
+      alinea.push(t);
+    });
+    sluitAlinea(); sluitLijst();
+    return uit;
+  }
+
+  function regelsVan(rest, regels) { return (rest ? [rest] : []).concat(regels).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function splitsUitleg(rest, regels) {
+    var uitleg = [], over = [];
+    regelsVan(rest, regels).forEach(function (t) {
+      var m = t.match(/^(uitleg|feedback|toelichting)\s*:\s*(.*)$/i);
+      if (m) uitleg.push(m[2]); else over.push(t);
+    });
+    return { regels: over, uitleg: uitleg.join(' ') };
+  }
+  function paar(t) { var m = t.match(/^(.+?)\s*(?:=|::|\s\|\s)\s*(.+)$/); return m ? [m[1].trim(), m[2].trim()] : null; }
+  function delen(t) { return t.split('|').map(function (x) { return x.trim(); }); }
+  function urlUit(rest, regels) {
+    var alles = regelsVan(rest, regels).join(' ');
+    var m = alles.match(/https?:\/\/\S+/);
+    return { url: m ? m[0] : '', rest: (m ? alles.replace(m[0], '') : alles).trim() };
+  }
+  function secties(regels) {
+    var uit = [], h2 = null;
+    regels.forEach(function (rg) {
+      var m = rg.trim().match(/^#{1,3}\s*(.+)$/);
+      if (m) { h2 = { title: m[1].trim(), regels: [] }; uit.push(h2); }
+      else if (h2) h2.regels.push(rg);
+      else if (rg.trim()) { h2 = { title: '', regels: [rg] }; uit.push(h2); }
+    });
+    return uit.map(function (x) { return { title: x.title, body: bulkHtml(x.regels) }; });
+  }
+  function notitie(soort) {
+    return function (rest, regels) { return { t: 'note', soort: soort, title: '', body: bulkHtml((rest ? [rest] : []).concat(regels)) }; };
+  }
+
+  /* Elk label: hoe je het schrijft (voorbeeld en uitleg, ook voor het
+     spiekbriefje en de instructie voor een taalmodel) en wat het wordt. */
+  var BULK_LABELS = [
+    { tag: 'tekst', alias: ['text', 'alinea', 'kop'], t: 'text', voorbeeld: '@tekst Kop van het blok\nEerste alinea.\n\nTweede alinea met **vet**.\n- een punt\n- nog een punt', uitleg: 'Kop achter het label (mag leeg). Lege regel = nieuwe alinea; regels met - worden een opsomming.',
+      maak: function (rest, regels) { return { t: 'text', heading: rest, body: bulkHtml(regels) }; } },
+    { tag: 'lijst', alias: ['opsomming', 'list'], t: 'list', voorbeeld: '@lijst\n- Eerste punt\n- Tweede punt', uitleg: 'Elke regel is een punt.',
+      maak: function (rest, regels) { return { t: 'list', ordered: false, items: regelsVan(rest, regels).map(function (x) { return bulkOpmaak(x.replace(/^([-•–*]|\d+[.)])\s*/, '')); }) }; } },
+    { tag: 'genummerd', alias: ['nummering'], t: 'list', voorbeeld: '@genummerd\nEerst dit\nDan dat', uitleg: 'Een genummerde lijst; elke regel is een punt.',
+      maak: function (rest, regels) { return { t: 'list', ordered: true, items: regelsVan(rest, regels).map(function (x) { return bulkOpmaak(x.replace(/^([-•–*]|\d+[.)])\s*/, '')); }) }; } },
+    { tag: 'citaat', alias: ['statement', 'quote'], t: 'quote', voorbeeld: '@citaat Afval is een ontwerpfout.', uitleg: 'Eén zin die blijft hangen.',
+      maak: function (rest, regels) { return { t: 'quote', body: bulkOpmaak(regelsVan(rest, regels).join(' ')) }; } },
+    { tag: 'tip', alias: [], t: 'note', voorbeeld: '@tip\nBegin bij de bovenste treden.', uitleg: 'Een tip in een kader. Ook: @letop, @info en @opdracht.', maak: notitie('tip') },
+    { tag: 'letop', alias: ['waarschuwing'], t: 'note', verborgen: true, maak: notitie('let') },
+    { tag: 'info', alias: ['weetje'], t: 'note', verborgen: true, maak: notitie('info') },
+    { tag: 'opdracht', alias: ['taak'], t: 'note', verborgen: true, maak: notitie('opdracht') },
+    { tag: 'tabel', alias: ['table'], t: 'table', voorbeeld: '@tabel Bron: CBS 2024\nStrategie | Voorbeeld\nRepair | Telefoon maken\nRecycle | Pet vermalen', uitleg: 'Kolommen scheiden met |; de eerste regel is de kop. Achter het label een bijschrift (mag leeg).',
+      maak: function (rest, regels) { return { t: 'table', kop: true, caption: rest, rows: regels.filter(function (x) { return x.trim(); }).map(delen) }; } },
+    { tag: 'vraag', alias: ['vragen', 'meerkeuze', 'mc', 'kennisvraag'], t: 'quiz', voorbeeld: '@vraag\nWat is hergebruik?\n* Een product opnieuw gebruiken\n- Het product verbranden\n- Het product weggooien\nUitleg: Hergebruik behoudt de meeste waarde.', uitleg: '* voor een goed antwoord, - voor een fout antwoord. Meer dan één * = meerdere goede antwoorden. Een lege regel begint een nieuwe vraag.',
+      maak: function (rest, regels) { return leesBulk((rest ? rest + '\n' : '') + regels.join('\n')); } },
+    { tag: 'invul', alias: ['invulvraag', 'fill'], t: 'fill', voorbeeld: '@invul Bij [recycling|recyclen] wordt een product weer grondstof.', uitleg: 'Wat de student invult tussen [haken]; andere goede antwoorden met |.',
+      maak: function (rest, regels) { var x = splitsUitleg(rest, regels); return { t: 'fill', question: '', text: x.regels.join(' '), feedback: x.uitleg }; } },
+    { tag: 'open', alias: ['openvraag', 'reflectie'], t: 'open', voorbeeld: '@open Hoe zie je dit terug bij je stagebedrijf?\nUitleg: Denk aan inkoop, ontwerp en afval.', uitleg: 'Wordt niet nagekeken. Na "Uitleg:" je voorbeeldantwoord of aandachtspunten.',
+      maak: function (rest, regels) { var x = splitsUitleg(rest, regels); return { t: 'open', question: x.regels.join(' '), hint: '', feedback: x.uitleg }; } },
+    { tag: 'koppel', alias: ['koppelvraag', 'match'], t: 'match', voorbeeld: '@koppel Koppel elk begrip aan de omschrijving.\nRepair = Een kapot product laten werken\nRecycle = Materialen terugwinnen', uitleg: 'Elke regel: begrip = omschrijving. De student ziet de omschrijvingen door elkaar.',
+      maak: function (rest, regels) {
+        var x = splitsUitleg('', regels);
+        return { t: 'match', question: rest || 'Koppel elk begrip aan de juiste omschrijving.', pairs: x.regels.map(paar).filter(Boolean).map(function (p) { return { left: p[0], right: p[1] }; }), feedback: x.uitleg };
+      } },
+    { tag: 'sorteer', alias: ['sorteren', 'sort'], t: 'sort', voorbeeld: '@sorteer Waar hoort elk voorbeeld bij?\nHoog op de ladder: Repair; Refuse\nLaag op de ladder: Recycle; Verbranden', uitleg: 'Elke regel: categorie: onderdeel; onderdeel; …',
+      maak: function (rest, regels) {
+        var x = splitsUitleg('', regels), stapels = [], items = [];
+        x.regels.forEach(function (rg) {
+          var m = rg.match(/^(.+?)\s*:\s*(.+)$/);
+          if (!m) return;
+          stapels.push(m[1].trim());
+          m[2].split(/\s*[;,]\s*/).filter(Boolean).forEach(function (it) { items.push({ text: it.trim(), pile: stapels.length - 1 }); });
+        });
+        return { t: 'sort', question: rest, piles: stapels, items: items, feedback: x.uitleg };
+      } },
+    { tag: 'kaartjes', alias: ['begrippen', 'cards', 'begrippenkaartjes'], t: 'cards', voorbeeld: '@kaartjes\nRefuse = Iets niet nodig hebben\nRepair = Iets laten maken', uitleg: 'Elke regel: voorkant = achterkant.',
+      maak: function (rest, regels) { return { t: 'cards', items: regels.map(paar).filter(Boolean).map(function (p) { return { front: p[0], back: p[1] }; }) }; } },
+    { tag: 'tabs', alias: ['tabbladen'], t: 'tabs', voorbeeld: '@tabs\n## Perspectief 1\nTekst van het eerste tabblad.\n## Perspectief 2\nTekst van het tweede.', uitleg: 'Elk tabblad begint met ## en een titel. Hetzelfde met @uitklap voor een uitklapblok.',
+      maak: function (rest, regels) { return { t: 'tabs', items: secties(regels) }; } },
+    { tag: 'uitklap', alias: ['uitklapblok', 'accordeon', 'accordion'], t: 'accordion', verborgen: true,
+      maak: function (rest, regels) { return { t: 'accordion', items: secties(regels) }; } },
+    { tag: 'tijdlijn', alias: ['timeline'], t: 'timeline', voorbeeld: '@tijdlijn\n1970 | Eerste recycling | Glasbakken in Nederland.\n2016 | Rijksbrede aanpak | Doel: circulair in 2050.', uitleg: 'Elke regel: label | titel | tekst.',
+      maak: function (rest, regels) {
+        return { t: 'timeline', items: regels.filter(function (x) { return x.trim(); }).map(function (x) { var d = delen(x); return { date: d[0] || '', title: d[1] || '', body: bulkOpmaak(d.slice(2).join(' | ')) }; }) };
+      } },
+    { tag: 'stappen', alias: ['stappenplan', 'steps'], t: 'steps', voorbeeld: '@stappen Zo pak je het aan\nVerzamel gegevens | Wat gaat erin en wat gaat eruit?\nZoek de lekken | Waar gaat waarde verloren?', uitleg: 'Titel achter het label. Elke regel: stap | toelichting.',
+      maak: function (rest, regels) {
+        return { t: 'steps', intro: { title: rest, body: '' }, summary: { title: '', body: '' }, steps: regels.filter(function (x) { return x.trim(); }).map(function (x) { var d = delen(x.replace(/^\d+[.)]\s*/, '')); return { title: d[0], body: d.slice(1).join(' | ') }; }) };
+      } },
+    { tag: 'video', alias: ['youtube', 'vimeo'], t: 'video', voorbeeld: '@video https://www.youtube.com/watch?v=… Titel van de video', uitleg: 'Link en titel. Alleen een echte link; laat het weg als je die niet hebt.',
+      maak: function (rest, regels) { var u = urlUit(rest, regels); var v = herkenVideo(u.url) || {}; var b = { t: 'video', bron: u.url, title: u.rest }; Object.keys(v).forEach(function (k) { if (v[k] !== undefined) b[k] = v[k]; }); return b; } },
+    { tag: 'afbeelding', alias: ['beeld', 'image', 'foto'], t: 'image', voorbeeld: '@afbeelding Bijschrift van de afbeelding', uitleg: 'Een lege plek met bijschrift; de afbeelding kies je daarna zelf.',
+      maak: function (rest, regels) { return { t: 'image', src: '', caption: regelsVan(rest, regels).join(' '), alt: '' }; } },
+    { tag: 'insluiten', alias: ['embed'], t: 'embed', voorbeeld: '@insluiten https://www.mentimeter.com/… Stemming', uitleg: 'Een site in de pagina, zoals Mentimeter of Padlet: link en titel.',
+      maak: function (rest, regels) { var u = urlUit(rest, regels); return { t: 'embed', bron: u.url, url: naarInsluitUrl(u.url).url, title: u.rest, height: 480 }; } },
+    { tag: 'audio', alias: ['podcast'], t: 'audio', voorbeeld: '@audio https://…/fragment.mp3 Interview met de inkoper', uitleg: 'Link naar een mp3 en een titel.',
+      maak: function (rest, regels) { var u = urlUit(rest, regels); return { t: 'audio', url: u.url, title: u.rest, transcript: '' }; } },
+    { tag: 'links', alias: ['link', 'linkknoppen'], t: 'links', voorbeeld: '@links\nRijksoverheid | https://www.rijksoverheid.nl', uitleg: 'Elke regel: tekst op de knop | link.',
+      maak: function (rest, regels) { return { t: 'links', items: regels.filter(function (x) { return x.trim(); }).map(function (x) { var d = delen(x); return { label: d[0], href: d[1] || '' }; }) }; } },
+    { tag: 'grafiek', alias: ['chart', 'diagram'], t: 'chart', voorbeeld: '@grafiek Afval per jaar (kton)\n2020: 60\n2024: 52', uitleg: 'Titel achter het label. Elke regel: label: getal.',
+      maak: function (rest, regels) {
+        return { t: 'chart', soort: 'staaf', title: rest, unit: '', caption: '', items: regels.map(function (x) { var m = x.match(/^(.+?)\s*[:|]\s*(-?[\d.,]+)/); return m ? { label: m[1].trim(), value: Number(m[2].replace(',', '.')) || 0 } : null; }).filter(Boolean) };
+      } },
+    { tag: 'doorgaan', alias: ['continue', 'verder', 'stap'], t: 'continue', voorbeeld: '@doorgaan', uitleg: 'De student klikt hier door naar het volgende stuk.',
+      maak: function () { return { t: 'continue' }; } },
+    { tag: 'scheiding', alias: ['divider', 'lijn'], t: 'divider', voorbeeld: '@scheiding', uitleg: 'Een korte lijn tussen twee onderwerpen.',
+      maak: function () { return { t: 'divider' }; } }
+  ];
+  function bulkLabel(tag) {
+    tag = String(tag || '').toLowerCase();
+    return BULK_LABELS.find(function (x) { return x.tag === tag || x.alias.indexOf(tag) >= 0; });
+  }
+
+  /* De hele tekst lezen: elk blok begint met een @-label. Tekst vóór het
+     eerste label wordt gelezen als vragen (zoals zonder labels). Een codeblok
+     van een taalmodel (```) wordt genegeerd. */
+  function leesBulkAlles(tekst) {
+    var stukken = [], huidig = { tag: null, rest: '', regels: [] };
+    String(tekst || '').replace(/\r/g, '').split('\n').forEach(function (rg) {
+      if (/^\s*```/.test(rg)) return;
+      var m = rg.match(/^\s*@([A-Za-zÀ-ÿ]+)\s*(.*)$/);
+      if (m) { stukken.push(huidig); huidig = { tag: m[1], rest: m[2].trim(), regels: [] }; }
+      else huidig.regels.push(rg);
+    });
+    stukken.push(huidig);
+    var uit = [];
+    stukken.forEach(function (st) {
+      if (!st.tag) {
+        if (!st.regels.join('').trim()) return;
+        /* Tekst zonder antwoorden vóór de labels is vaak een inleiding van een taalmodel: een tekstblok, met een waarschuwing. */
+        var metLabels = stukken.some(function (x) { return x.tag; });
+        var antwoorden = st.regels.some(function (x) { return /^\s*[*+✓✔\-–—]\s+\S/.test(x); });
+        if (metLabels && !antwoorden) {
+          uit.push({ blok: { t: 'text', heading: '', body: bulkHtml(st.regels) }, problemen: ['stond vóór het eerste label; haal het weg als het een inleiding van het taalmodel is'], reden: 'want het staat vóór het eerste label' });
+          return;
+        }
+        leesBulk(st.regels.join('\n')).forEach(function (x) { uit.push({ blok: x.blok, problemen: x.problemen, reden: bulkReden(x.blok) }); });
+        return;
+      }
+      var lb = bulkLabel(st.tag);
+      if (!lb) {
+        uit.push({ blok: { t: 'text', heading: st.rest, body: bulkHtml(st.regels) }, problemen: ['onbekend label @' + st.tag + '; als tekst toegevoegd'], reden: 'want @' + st.tag + ' kent de bouwer niet' });
+        return;
+      }
+      [].concat(lb.maak(st.rest, st.regels)).forEach(function (x) {
+        var blok = x.blok || x;
+        var problemen = (x.problemen || []).slice();
+        var type = TYPES[blok.t];
+        var w = type && type.waarschuwing ? type.waarschuwing(blok) : '';
+        if (w && blok.t !== 'image' && problemen.indexOf(w) < 0) problemen.push(w.charAt(0).toLowerCase() + w.slice(1));
+        uit.push({ blok: blok, problemen: problemen, reden: 'want @' + st.tag });
+      });
+    });
+    return uit;
+  }
+
+  /* Kleur van het label per groep, zoals in de blokkenkiezer. */
+  var GROEPKLEUR = { 'Tekst': 'grijs', 'Beeld en media': 'blauw', 'Interactief': 'paars', 'Vragen': 'groen', 'Structuur': 'oranje' };
+  function blokLabel(b) {
+    var sleutel = b.t === 'quiz' && b.multi ? 'quiz-multi' : b.t;
+    var groep = PALET.find(function (g) { return g.items.indexOf(sleutel) >= 0 || g.items.indexOf(b.t) >= 0; });
+    return h('span', { class: 'soort-label ' + (GROEPKLEUR[groep ? groep.groep : 'Tekst'] || 'grijs'), text: paletNaam(sleutel).naam });
+  }
+
+  /* Het spiekbriefje, per groep. */
+  function bulkSpiek() {
+    return h('div', { class: 'spiek' }, PALET.map(function (g) {
+      var labels = BULK_LABELS.filter(function (x) {
+        if (x.verborgen) return false;
+        return g.items.indexOf(x.t) >= 0 || (x.t === 'quiz' && g.groep === 'Vragen');
+      });
+      if (!labels.length) return null;
+      return h('div', { class: 'spiek-groep' }, h('h4', { text: g.groep }), labels.map(function (x) {
+        return h('div', { class: 'spiek-kaart' }, h('code', { text: '@' + x.tag }), h('pre', { text: x.voorbeeld }), h('small', { text: x.uitleg }));
+      }));
+    }), h('p', { class: 'hulp spiek-noot', text: 'Niet in bulk: scenario, klikplaat en galerij. Die maak je in de bouwer zelf, omdat ze afbeeldingen of keuzes per scène nodig hebben.' }));
+  }
+
+  /* De instructie voor een taalmodel, uit dezelfde labels opgebouwd. */
+  function taalmodelInstructie() {
+    return [
+      'Je schrijft inhoud voor een e-learning in een vast tekstformaat. De E-learning Bouwer leest dat formaat direct in.',
+      '',
+      'Onderwerp, doelgroep en leerdoelen: [VUL HIER IN]',
+      '',
+      'Uitvoerregels:',
+      '- Antwoord alleen met de inhoud in dit formaat. Geen inleiding, geen afsluiting, geen toelichting en geen codeblok.',
+      '- Elk blok begint op een eigen regel met een @-label uit de lijst hieronder. Zet een lege regel tussen twee blokken.',
+      '- Gebruik alleen deze labels; verzin geen andere.',
+      '- Schrijf in het Nederlands op B1-niveau, met korte zinnen.',
+      '- Wissel uitleg af met interactie en vragen, en zet na elke 2 tot 4 blokken een @doorgaan.',
+      '- Vragen toetsen toepassen en begrijpen, niet alleen onthouden. Foute antwoorden zijn aannemelijk en ongeveer even lang als het goede antwoord; het goede antwoord staat niet steeds op dezelfde plek.',
+      '- Verzin geen links. Gebruik @video, @insluiten, @audio en @links alleen met een link die je van mij hebt gekregen.',
+      '- Gebruik geen Markdown, behalve **vet**, regels met - voor een opsomming en ## voor de titel van een tabblad.',
+      '',
+      'Labels (label, uitleg, voorbeeld):',
+      ''
+    ].concat(BULK_LABELS.filter(function (x) { return !x.verborgen; }).map(function (x) {
+      return '@' + x.tag + ': ' + x.uitleg + '\n' + x.voorbeeld;
+    }).join('\n\n').split('\n')).concat([
+      '',
+      'Naast @tip bestaan ook @letop, @info en @opdracht (zelfde opbouw), en naast @tabs ook @uitklap (zelfde opbouw).'
+    ]).join('\n');
   }
 
   function dialoogBulk(naIndex) {
     if (!les()) { melding('Maak eerst een module.'); return; }
     var plek = naIndex === undefined ? klikPlek() : naIndex;
     dialoog(function (sluit) {
-      var vak = h('textarea', { id: 'bulk-tekst', rows: 12, placeholder: BULK_VOORBEELD, spellcheck: 'true' });
-      var overzicht = h('div', { class: 'bulk-overzicht' });
+      var vak = h('textarea', { id: 'bulk-tekst', rows: 14, placeholder: BULK_VOORBEELD, spellcheck: 'true', 'aria-label': 'Je inhoud' });
+      var overzicht = h('div', { class: 'bulk-overzicht', 'aria-live': 'polite' });
       var knop = h('button', { type: 'button', class: 'knop primair', disabled: true }, 'Toevoegen');
       var bewaarVink = h('input', { type: 'checkbox', id: 'bulk-bewaar' });
-      var naam = h('input', { type: 'text', id: 'bulk-naam', placeholder: 'Bijvoorbeeld: Toetsvragen R-ladder', hidden: true });
+      var naam = h('input', { type: 'text', id: 'bulk-naam', placeholder: 'Naam van de set, bijvoorbeeld: Module R-ladder', hidden: true });
       var resultaat = [];
       bewaarVink.addEventListener('change', function () { naam.hidden = !bewaarVink.checked; if (bewaarVink.checked) naam.focus(); });
+
+      /* Spiekbriefje of instructie voor een taalmodel. */
+      var instructie = h('textarea', { class: 'taalmodel-tekst', readonly: true, rows: 10, 'aria-label': 'Instructie voor een taalmodel' });
+      instructie.value = taalmodelInstructie();
+      var kopieer = h('button', { type: 'button', class: 'knop klein primair' }, 'Instructie kopiëren');
+      kopieer.addEventListener('click', function () {
+        function gelukt() { kopieer.textContent = 'Gekopieerd'; setTimeout(function () { kopieer.textContent = 'Instructie kopiëren'; }, 2000); }
+        var klaar = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(instructie.value) : Promise.reject();
+        klaar.then(gelukt, function () {
+          instructie.focus(); instructie.select();
+          try { if (document.execCommand('copy')) gelukt(); else melding('Selecteer de tekst en kopieer met Ctrl+C.'); } catch (e) { melding('Selecteer de tekst en kopieer met Ctrl+C.'); }
+        });
+      });
+      var spiekVak = h('div', { class: 'bulk-hulp' }, bulkSpiek());
+      var aiVak = h('div', { class: 'bulk-hulp', hidden: true },
+        h('p', { class: 'hulp', text: 'Laat een taalmodel (zoals Copilot of ChatGPT) de inhoud schrijven: kopieer deze instructie, vul bovenaan je onderwerp en leerdoelen in, en plak het antwoord van het taalmodel hieronder bij "Jouw inhoud". Lees daarna alles na; een taalmodel kan zich vergissen.' }),
+        instructie, h('div', { class: 'knoprij' }, kopieer));
+      function tab(knopTekst, toon) {
+        var b = h('button', { type: 'button', 'aria-pressed': String(toon === spiekVak), onclick: function () {
+          spiekVak.hidden = toon !== spiekVak; aiVak.hidden = toon !== aiVak;
+          tabs.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        } }, knopTekst);
+        return b;
+      }
+      var tabs = h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Hulp' });
+      tabs.append(tab('Spiekbriefje', spiekVak), tab('Instructie voor een taalmodel', aiVak));
+
       function werk() {
-        resultaat = leesBulk(vak.value);
+        resultaat = leesBulkAlles(vak.value);
         overzicht.innerHTML = '';
         if (!resultaat.length) {
-          overzicht.append(h('p', { class: 'hulp', text: 'Typ of plak je vragen hierboven. Rechts van elke vraag zie je hier wat de bouwer ervan maakt.' }));
+          overzicht.append(h('p', { class: 'hulp', text: 'Hier zie je per blok welke soort het wordt, en waarom.' }));
         } else {
           var fouten = resultaat.filter(function (x) { return x.problemen.length; }).length;
-          overzicht.append(h('p', { class: fouten ? 'fout' : 'herkend', text: aantal(resultaat.length, '1 vraag', 'vragen') + ' herkend' + (fouten ? '; bij ' + aantal(fouten, '1 vraag', 'vragen') + ' klopt nog iets niet (je kunt ze ook na het toevoegen aanpassen).' : '.') }));
+          var tel = {}, volg = [];
+          resultaat.forEach(function (x) { var n = paletNaam(x.blok.t === 'quiz' && x.blok.multi ? 'quiz-multi' : x.blok.t).naam; if (!tel[n]) volg.push(n); tel[n] = (tel[n] || 0) + 1; });
+          overzicht.append(h('p', { class: fouten ? 'fout' : 'herkend', text: aantal(resultaat.length, '1 blok', 'blokken') + ': '
+            + volg.map(function (n) { return tel[n] + '× ' + n.toLowerCase(); }).join(', ')
+            + (fouten ? '. Bij ' + aantal(fouten, '1 blok', 'blokken') + ' klopt nog iets niet.' : '.') }));
           overzicht.append(h('ol', { class: 'bulk-lijst' }, resultaat.map(function (x) {
-            var b = x.blok;
-            var tekst = b.t === 'fill' ? b.text : b.question;
+            var b = x.blok, type = TYPES[b.t] || TYPES.text;
             return h('li', { class: x.problemen.length ? 'let' : '' },
-              h('strong', { text: bulkSoort(b) }), ' ', h('span', { text: String(tekst || '').slice(0, 90) }),
-              x.problemen.length ? h('small', { text: x.problemen.join('; ') }) : null);
+              h('div', { class: 'bulk-kop' }, blokLabel(b), h('span', { class: 'bulk-reden', text: x.reden })),
+              b.t === 'continue' || b.t === 'divider' ? null : h('div', { class: 'bulk-vraag', text: String(type.samenvatting(b) || '').slice(0, 120) }),
+              b.t === 'quiz' ? h('div', { class: 'bulk-antwoorden' }, b.options.map(function (o) {
+                return h('span', { class: o.correct ? 'goed' : '', text: (o.correct ? '✓ ' : '✗ ') + o.text });
+              })) : null,
+              x.problemen.length ? h('small', { text: 'Let op: ' + x.problemen.join('; ') }) : null);
           })));
         }
         knop.disabled = !resultaat.length;
-        knop.textContent = resultaat.length ? aantal(resultaat.length, '1 vraag', 'vragen') + ' toevoegen' : 'Toevoegen';
+        knop.textContent = resultaat.length ? aantal(resultaat.length, '1 blok', 'blokken') + ' toevoegen' : 'Toevoegen';
       }
       vak.addEventListener('input', werk);
       knop.addEventListener('click', function () {
         var blokken = resultaat.map(function (x) { return x.blok; });
         var bewaren = bewaarVink.checked;
-        var setNaam = naam.value.trim() || 'Vragen ' + new Date().toLocaleDateString('nl-NL');
+        var setNaam = naam.value.trim() || 'Bulk ' + new Date().toLocaleDateString('nl-NL');
         sluit();
         var n = voegBlokkenIn(blokken, plek);
         if (bewaren) {
-          var x = { kind: 'bieb', id: nieuwId('k'), naam: setNaam, at: Date.now(), blokken: blokken.map(function (b) { return zonderSleutels(normaliseerBlok(kloon(b))); }) };
+          var x = { kind: 'bieb', id: nieuwId('k'), naam: setNaam, at: Date.now(), blokken: blokken.map(function (b) { return zonderSleutels(normaliseerBlok(kloon(b))); }).filter(Boolean) };
           Bieb.voegToe(x).then(function () {
             renderBlokkenPaneel();
-            melding(aantal(n, '1 vraag', 'vragen') + ' toegevoegd en bewaard als "' + setNaam + '" in Mijn blokken.');
-          }).catch(function () { melding(aantal(n, '1 vraag', 'vragen') + ' toegevoegd; bewaren in Mijn blokken lukte niet.'); });
-        } else melding(aantal(n, '1 vraag', 'vragen') + ' toegevoegd. Controleren wijst aan wat nog ontbreekt, zoals uitleg na het nakijken.');
+            melding(aantal(n, '1 blok', 'blokken') + ' toegevoegd en bewaard als "' + setNaam + '" in Mijn blokken.');
+          }).catch(function () { melding(aantal(n, '1 blok', 'blokken') + ' toegevoegd; bewaren in Mijn blokken lukte niet.'); });
+        } else melding(aantal(n, '1 blok', 'blokken') + ' toegevoegd. Controleren wijst aan wat nog ontbreekt, zoals afbeeldingen of uitleg.');
       });
       werk();
       return [
-        h('h2', null, 'Vragen in bulk'),
-        h('p', null, 'Typ of plak meerdere vragen tegelijk. De bouwer maakt er in één keer blokken van.'),
-        h('details', { class: 'bulk-uitleg' },
-          h('summary', { text: 'Zo schrijf je de vragen' }),
-          h('ul', null,
-            h('li', null, 'Eén vraag per alinea; zet een lege regel tussen de vragen. Nummers zoals "1." mogen.'),
-            h('li', null, 'Antwoorden op een eigen regel: ', h('strong', { text: '*' }), ' voor een goed antwoord, ', h('strong', { text: '-' }), ' voor een fout antwoord. Meer dan één * maakt een vraag met meerdere goede antwoorden.'),
-            h('li', null, 'Een regel die begint met ', h('strong', { text: 'Uitleg:' }), ' wordt de uitleg na het nakijken.'),
-            h('li', null, 'Geen antwoorden maar woorden tussen [haken]: een invulvraag. Geen antwoorden en geen haken: een open vraag.')),
-          h('button', { type: 'button', class: 'knop-tekst', onclick: function () { vak.value = BULK_VOORBEELD; werk(); vak.focus(); } }, 'Voorbeeld invullen')),
-        vak,
-        overzicht,
+        h('h2', null, 'Bulk invoeren'),
+        h('p', null, 'Typ of plak een hele module of een reeks vragen in één keer. Elk blok begint met een label op een eigen regel, zoals @tekst, @vraag of @koppel. Vragen zonder label mogen ook.'),
+        h('div', { class: 'bulk-hulp-kop' }, tabs),
+        spiekVak,
+        aiVak,
+        h('div', { class: 'bulk-werk' },
+          h('div', { class: 'bulk-kolom' },
+            h('div', { class: 'bulk-kolom-kop' }, h('strong', { text: 'Jouw inhoud' }),
+              h('button', { type: 'button', class: 'knop-tekst', onclick: function () { vak.value = BULK_VOORBEELD; werk(); vak.focus(); } }, 'Voorbeeld invullen')),
+            vak),
+          h('div', { class: 'bulk-kolom' },
+            h('div', { class: 'bulk-kolom-kop' }, h('strong', { text: 'Dit wordt het' })),
+            overzicht)),
         h('div', { class: 'velden' },
           h('label', { class: 'schakel', for: 'bulk-bewaar' }, bewaarVink, 'Ook bewaren als set in Mijn blokken, om in andere e-learnings te slepen'),
           naam),
         h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), knop)
       ];
     });
+    /* Dit venster is breder dan de andere, zodat invoer en uitkomst naast elkaar passen. */
+    var vensters = document.querySelectorAll('.dialoog');
+    if (vensters.length) vensters[vensters.length - 1].classList.add('breed');
   }
 
   function biebKnoppen(naIndex) {
