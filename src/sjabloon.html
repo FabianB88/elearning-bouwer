@@ -443,6 +443,26 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 
 /* ---------------------------------------------------------------- voorbeeld */
 .voorbeeld-balk { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--lijn); background: var(--paneel); flex-wrap: wrap; }
+.rechts-keuze { margin-right: auto; }
+.baan-voorbeeld[data-soort="blokken"] .vb-alleen, .baan-voorbeeld[data-soort="blokken"] .voorbeeld-veld { display: none; }
+.blokken-paneel { display: none; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px; gap: 14px; align-content: start; }
+.baan-voorbeeld[data-soort="blokken"] .blokken-paneel { display: grid; }
+.paneel-kop { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.paneel-kop .hulp { margin: 0; font-size: 12px; line-height: 1.5; color: var(--tekst-2); }
+.paneel-kop .knop-tekst { white-space: nowrap; }
+.paneel-groep { display: grid; gap: 6px; }
+.paneel-groep h4 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tekst-3); }
+.paneel-groep .hulp { margin: 0; font-size: 12px; color: var(--tekst-3); }
+.tegels { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.tegel { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 10px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--paneel); color: var(--tekst); font-size: 12.5px; font-weight: 600; cursor: grab; user-select: none; }
+.tegel:hover, .tegel:focus-visible { border-color: var(--accent); background: var(--accent-zacht); }
+.tegel:active { cursor: grabbing; }
+.tegel svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--tekst-2); }
+.tegel-naam { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+.paneel-vink { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 13px; cursor: pointer; }
+.paneel-vink svg { width: 15px; height: 15px; color: var(--tekst-2); }
+.blokken { position: relative; }
+body.sleept-nieuw .baan-editor { outline: 2px dashed var(--accent); outline-offset: -6px; }
 .voorbeeld-balk .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--tekst-2); font-weight: 700; margin-right: auto; }
 .segment-keuze { display: inline-flex; border: 1px solid var(--lijn); border-radius: 8px; overflow: hidden; }
 .segment-keuze button { border: 0; background: var(--paneel); padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--tekst-2); }
@@ -586,20 +606,24 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
     <main class="baan baan-editor" id="editor-baan"><div class="editor" id="editor"></div></main>
     <div class="sleep sleep-rechts" id="sleep-rechts" role="separator" aria-orientation="vertical" aria-label="Breedte van het voorbeeld. Sleep, of gebruik de pijltjestoetsen; Enter klapt in of uit." tabindex="0"></div>
     <div class="rail rail-rechts" id="rail-rechts"></div>
-    <section class="baan baan-voorbeeld" aria-label="Voorbeeld">
+    <section class="baan baan-voorbeeld" aria-label="Rechts in beeld: voorbeeld of blokken" data-soort="voorbeeld">
       <div class="voorbeeld-balk">
-        <span class="label">Voorbeeld</span>
-        <span class="segment-keuze" role="group" aria-label="Zo ziet de student het">
+        <span class="segment-keuze rechts-keuze" role="group" aria-label="Rechts in beeld">
+          <button type="button" id="rechts-voorbeeld" aria-pressed="true">Voorbeeld</button>
+          <button type="button" id="rechts-blokken" aria-pressed="false">Blokken</button>
+        </span>
+        <span class="segment-keuze vb-alleen" role="group" aria-label="Zo ziet de student het">
           <button type="button" id="vb-alles" aria-pressed="true">Alles tonen</button>
           <button type="button" id="vb-student" aria-pressed="false">Als student</button>
         </span>
-        <span class="segment-keuze" role="group" aria-label="Schermbreedte">
+        <span class="segment-keuze vb-alleen" role="group" aria-label="Schermbreedte">
           <button type="button" id="vb-breed" aria-pressed="true">Breed</button>
           <button type="button" id="vb-telefoon" aria-pressed="false">Telefoon</button>
         </span>
-        <button type="button" class="knop klein" id="vb-wis" title="Wis de antwoorden in het voorbeeld">Antwoorden wissen</button>
+        <button type="button" class="knop klein vb-alleen" id="vb-wis" title="Wis de antwoorden in het voorbeeld">Antwoorden wissen</button>
       </div>
       <div class="voorbeeld-veld"><div class="voorbeeld-scherm" id="voorbeeld"></div></div>
+      <div class="blokken-paneel" id="blokken-paneel" aria-label="Blokken om te slepen"></div>
     </section>
   </div>
 </div>

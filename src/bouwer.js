@@ -1824,6 +1824,8 @@
     vuil: {},
     verwijderdeLessen: [],
     vb: { alles: true, telefoon: false },
+    rechts: ls('bouwer:rechts') === 'blokken' ? 'blokken' : 'voorbeeld', /* rechts in beeld: voorbeeld of blokkenpaneel */
+    sleepNieuw: null,  /* tegel uit het blokkenpaneel die nu wordt gesleept */
     vbModule: undefined,
     lijst: [],
     sample: null,
@@ -2323,6 +2325,7 @@
         h('button', { type: 'button', class: 'knop', onclick: function () { openPalet('onder', 'sjablonen'); } }, ico('steps'), 'Sjabloon')));
     ed.append(onder);
     Dicht.bewaar(l);
+    if (S.rechts === 'blokken' && !paneelAanpassen) renderBlokkenPaneel();
   }
 
   function invoegPlek(naIndex) {
@@ -2351,13 +2354,175 @@
     if (p) p.scrollIntoView({ block: 'nearest' });
   }
 
+  function paletNaam(sleutel) {
+    var type = TYPES[sleutel === 'quiz-multi' ? 'quiz' : sleutel];
+    return {
+      naam: sleutel === 'quiz-multi' ? 'Meerdere antwoorden' : sleutel === 'quiz' ? 'Meerkeuzevraag' : type.naam,
+      uitleg: sleutel === 'quiz-multi' ? 'Meer dan één antwoord goed' : sleutel === 'quiz' ? 'Eén goed antwoord' : type.uitleg,
+      ico: sleutel === 'quiz-multi' ? 'quiz' : sleutel
+    };
+  }
+
+  /* ================================================================ blokkenpaneel */
+
+  /* Rechts in beeld kan in plaats van het voorbeeld een blokkenpaneel staan:
+     tegels die je naar de editor sleept of aanklikt. Welke blokken erin
+     staan, en of Mijn blokken en de sjablonen erbij horen, kies je zelf. */
+  var SNEL_STANDAARD = ['text', 'image', 'video', 'list', 'quiz', 'quiz-multi', 'note', 'tabs', 'cards', 'match', 'open', 'continue'];
+  var paneelAanpassen = false;
+
+  function alleSleutels() { return PALET.reduce(function (a, g) { return a.concat(g.items); }, []); }
+  function snelInstellingen() {
+    var x = null;
+    try { x = JSON.parse(ls('bouwer:snelmenu') || 'null'); } catch (e) { x = null; }
+    x = x || {};
+    var alle = alleSleutels();
+    return {
+      blokken: Array.isArray(x.blokken) ? alle.filter(function (k) { return x.blokken.indexOf(k) >= 0; }) : SNEL_STANDAARD.slice(),
+      bieb: x.bieb !== false,
+      sjablonen: x.sjablonen !== false
+    };
+  }
+  function bewaarSnel(x) { try { ls('bouwer:snelmenu', x ? JSON.stringify(x) : null); } catch (e) { /* dan alleen nu */ } }
+
+  /* Klikken voegt toe onder het gekozen blok, anders onderaan de module. */
+  function klikPlek() {
+    var l = les();
+    var i = l ? l.blocks.findIndex(function (b) { return b._k === S.gekozenK; }) : -1;
+    return i >= 0 ? i : 'onder';
+  }
+
+  function plaatsNieuw(x, naIndex) {
+    if (!les()) { melding('Maak eerst een module.'); return; }
+    if (x.soort === 'blok') voegBlokIn(x.waarde, naIndex);
+    else if (x.soort === 'bieb') voegBiebIn(x.waarde, naIndex);
+    else if (x.soort === 'sjabloon') zetSjabloon(x.waarde, naIndex);
+    if (matchMedia('(max-width: 760px)').matches) zetTab('bewerken');
+  }
+
+  function tegel(x, icoon, naam, uitleg) {
+    function kies() { plaatsNieuw(x, klikPlek()); }
+    var t = h('div', { class: 'tegel', role: 'button', tabindex: '0', draggable: 'true', title: uitleg ? naam + ': ' + uitleg : naam, onclick: kies },
+      ico(icoon), h('span', { class: 'tegel-naam', text: naam }));
+    t.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kies(); } });
+    t.addEventListener('dragstart', function (e) {
+      S.sleepNieuw = x;
+      try { e.dataTransfer.setData('text/plain', naam); e.dataTransfer.effectAllowed = 'copy'; } catch (er) { /* oude browser */ }
+      document.body.classList.add('sleept-nieuw');
+    });
+    t.addEventListener('dragend', stopSlepen);
+    return t;
+  }
+
+  function stopSlepen() {
+    S.sleepNieuw = null;
+    document.body.classList.remove('sleept-nieuw');
+    var lijn = document.getElementById('nieuw-lijn');
+    if (lijn) lijn.remove();
+  }
+
+  /* Waar een gesleepte tegel landt: vóór het blok waar de muis boven de helft zit. */
+  function dropPlek(y) {
+    var kaarten = Array.prototype.slice.call(document.querySelectorAll('#blokken > .blok-kaart'));
+    for (var i = 0; i < kaarten.length; i++) {
+      var r2 = kaarten[i].getBoundingClientRect();
+      if (y < r2.top + r2.height / 2) return { naIndex: i - 1, kaarten: kaarten, voor: i };
+    }
+    return { naIndex: 'onder', kaarten: kaarten, voor: kaarten.length };
+  }
+  function toonLijn(y) {
+    var lijst = document.getElementById('blokken');
+    if (!lijst) return;
+    var p = dropPlek(y);
+    var lr = lijst.getBoundingClientRect();
+    var pos = !p.kaarten.length ? lr.top + 4
+      : p.voor < p.kaarten.length ? p.kaarten[p.voor].getBoundingClientRect().top - 6
+      : p.kaarten[p.kaarten.length - 1].getBoundingClientRect().bottom + 6;
+    var lijn = document.getElementById('nieuw-lijn');
+    if (!lijn) { lijn = h('div', { class: 'sleep-lijn', id: 'nieuw-lijn' }); lijst.append(lijn); }
+    lijn.style.top = (pos - lr.top) / zoomVan() + 'px';
+  }
+
+  function renderBlokkenPaneel() {
+    var vak = document.getElementById('blokken-paneel');
+    if (!vak || S.rechts !== 'blokken') return;
+    var boven = vak.scrollTop;
+    vak.innerHTML = '';
+    var x = snelInstellingen();
+
+    if (paneelAanpassen) {
+      var gekozen = x.blokken.slice();
+      function vink(tekst, aan, opWijzig, icoon) {
+        var id = veldId();
+        var v = h('input', { type: 'checkbox', id: id, checked: aan });
+        v.addEventListener('change', function () { opWijzig(v.checked); });
+        return h('label', { class: 'paneel-vink', for: id }, v, icoon ? ico(icoon) : null, h('span', { text: tekst }));
+      }
+      function zetBlok(k, aan) {
+        gekozen = alleSleutels().filter(function (y) { return y === k ? aan : gekozen.indexOf(y) >= 0; });
+        x.blokken = gekozen;
+        bewaarSnel(x);
+      }
+      /* voegToe en niet append: append maakt van een lijst tekst. */
+      voegToe(vak, [
+        h('div', { class: 'paneel-kop' }, h('strong', { text: 'Wat staat er in je blokkenpaneel?' })),
+        PALET.map(function (g) {
+          return h('div', { class: 'paneel-groep' }, h('h4', { text: g.groep }), g.items.map(function (k) {
+            var n = paletNaam(k);
+            return vink(n.naam, gekozen.indexOf(k) >= 0, function (aan) { zetBlok(k, aan); }, n.ico);
+          }));
+        }),
+        h('div', { class: 'paneel-groep' }, h('h4', { text: 'Ook tonen' }),
+          vink('Mijn blokken', x.bieb, function (aan) { x.bieb = aan; bewaarSnel(x); }),
+          vink('Sjablonen', x.sjablonen, function (aan) { x.sjablonen = aan; bewaarSnel(x); })),
+        h('div', { class: 'knoprij' },
+          h('button', { type: 'button', class: 'knop klein', onclick: function () { bewaarSnel(null); renderBlokkenPaneel(); } }, 'Standaard'),
+          h('button', { type: 'button', class: 'knop klein primair', onclick: function () { paneelAanpassen = false; renderBlokkenPaneel(); } }, 'Klaar'))]);
+      vak.scrollTop = boven;
+      return;
+    }
+
+    var geenModule = !les();
+    vak.append(h('div', { class: 'paneel-kop' },
+      h('p', { class: 'hulp', text: geenModule ? 'Maak eerst een module; daarna sleep je hier blokken in.' : 'Sleep een blok naar de plek in de editor, of klik om het toe te voegen onder het gekozen blok.' }),
+      h('button', { type: 'button', class: 'knop-tekst', onclick: function () { paneelAanpassen = true; renderBlokkenPaneel(); } }, 'Aanpassen')));
+    vak.append(x.blokken.length
+      ? h('div', { class: 'tegels' }, x.blokken.map(function (k) { var n = paletNaam(k); return tegel({ soort: 'blok', waarde: k }, n.ico, n.naam, n.uitleg); }))
+      : h('p', { class: 'hulp', text: 'Er staan geen blokken in je paneel. Kies ze onder Aanpassen.' }));
+
+    if (x.bieb) {
+      var biebVak = h('div', { class: 'paneel-groep' }, h('h4', { text: 'Mijn blokken' }));
+      if (!Bieb.lijst) { biebVak.append(h('p', { class: 'hulp', text: 'Laden…' })); Bieb.laad().then(renderBlokkenPaneel); }
+      else if (!Bieb.lijst.length) biebVak.append(h('p', { class: 'hulp', text: 'Nog leeg. Bewaar een blok via ⋯ en "Bewaren in Mijn blokken".' }));
+      else biebVak.append(h('div', { class: 'tegels' }, Bieb.lijst.map(function (b) {
+        var type = TYPES[b.blok && b.blok.t] || TYPES.text;
+        return tegel({ soort: 'bieb', waarde: b }, b.blok.t, b.naam, type.naam);
+      })));
+      vak.append(biebVak);
+    }
+    if (x.sjablonen) {
+      vak.append(h('div', { class: 'paneel-groep' }, h('h4', { text: 'Sjablonen' }),
+        h('div', { class: 'tegels' }, SJABLONEN.map(function (sj) { return tegel({ soort: 'sjabloon', waarde: sj }, 'steps', sj.naam, sj.geschikt + ' (' + sj.duur + ')'); }))));
+    }
+    vak.scrollTop = boven;
+  }
+
+  /* Rechts in beeld: het voorbeeld of het blokkenpaneel. */
+  function zetRechts(soort) {
+    S.rechts = soort === 'blokken' ? 'blokken' : 'voorbeeld';
+    try { ls('bouwer:rechts', S.rechts === 'blokken' ? 'blokken' : null); } catch (e) { /* alleen nu */ }
+    var baan = document.querySelector('.baan-voorbeeld');
+    baan.setAttribute('data-soort', S.rechts);
+    $('#rechts-voorbeeld').setAttribute('aria-pressed', String(S.rechts === 'voorbeeld'));
+    $('#rechts-blokken').setAttribute('aria-pressed', String(S.rechts === 'blokken'));
+    if (S.rechts === 'blokken') renderBlokkenPaneel(); else tekenVoorbeeld();
+  }
+
   function palet(naIndex) {
     function knop(sleutel) {
-      var type = TYPES[sleutel === 'quiz-multi' ? 'quiz' : sleutel];
-      var naam = sleutel === 'quiz-multi' ? 'Meerdere antwoorden' : sleutel === 'quiz' ? 'Meerkeuzevraag' : type.naam;
-      var uitleg = sleutel === 'quiz-multi' ? 'Meer dan één antwoord goed' : sleutel === 'quiz' ? 'Eén goed antwoord' : type.uitleg;
+      var n = paletNaam(sleutel);
       return h('button', { type: 'button', onclick: function () { voegBlokIn(sleutel, naIndex); } },
-        ico(sleutel === 'quiz-multi' ? 'quiz' : sleutel), h('strong', null, naam), h('small', null, uitleg));
+        ico(n.ico), h('strong', null, n.naam), h('small', null, n.uitleg));
     }
     function soort(waarde, tekst) {
       return h('button', { type: 'button', 'aria-pressed': S.paletSoort === waarde ? 'true' : 'false', onclick: function () { if (S.paletSoort !== waarde) openPalet(naIndex, waarde); } }, tekst);
@@ -2688,6 +2853,7 @@
         Bieb.voegToe(x).then(function () {
           sluit();
           melding('Bewaard in Mijn blokken. Je vindt het in de blokkenkiezer, ook in je andere e-learnings.');
+          renderBlokkenPaneel();
         }).catch(function (e) {
           fout.hidden = false;
           fout.textContent = e && e.message === 'te groot'
@@ -3255,6 +3421,7 @@
   function spelerCursus() { return zonderSleutels(S.cursus); }
 
   function tekenVoorbeeld() {
+    if (S.rechts === 'blokken') return;
     if (!vbRoot || !S.cursus) return;
     werkOntwerpBij();
     var host = $('#voorbeeld');
@@ -5287,6 +5454,26 @@
     $('#knop-opslaan').addEventListener('click', function () { Bestand.opslaan(); });
     $('#status').addEventListener('click', dialoogBewaren);
     $('#knop-autosave').addEventListener('click', function () { Bestand.mapKnop(); });
+    $('#rechts-voorbeeld').addEventListener('click', function () { zetRechts('voorbeeld'); });
+    $('#rechts-blokken').addEventListener('click', function () { zetRechts('blokken'); });
+    /* Een tegel uit het blokkenpaneel landt waar de lijn staat. */
+    var edBaan = $('#editor-baan');
+    edBaan.addEventListener('dragover', function (e) {
+      if (!S.sleepNieuw) return;
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = 'copy'; } catch (er) { /* niets */ }
+      toonLijn(e.clientY);
+    });
+    edBaan.addEventListener('dragleave', function (e) {
+      if (S.sleepNieuw && !edBaan.contains(e.relatedTarget)) { var lijn = document.getElementById('nieuw-lijn'); if (lijn) lijn.remove(); }
+    });
+    edBaan.addEventListener('drop', function (e) {
+      if (!S.sleepNieuw) return;
+      e.preventDefault();
+      var x = S.sleepNieuw, p = dropPlek(e.clientY);
+      stopSlepen();
+      plaatsNieuw(x, p.naIndex);
+    });
     $('#knop-openen').addEventListener('click', function () {
       /* Via de bestandskiezer van de browser onthouden we het bestand, zodat Opslaan erin terugschrijft. */
       if (!Bestand.kan() || typeof window.showOpenFilePicker !== 'function') { $('#bestand-openen').click(); return; }
@@ -5378,6 +5565,7 @@
   initVoorbeeld();
   koppel();
   renderAlles();
+  zetRechts(S.rechts);
   Geschiedenis.begin();
   zetStatus('Voorbeeld: wijzigingen maken een eigen kopie', '');
 
