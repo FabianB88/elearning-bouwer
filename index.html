@@ -460,9 +460,18 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .paneel-groep { display: grid; gap: 6px; }
 .bulk-knop { justify-self: start; }
 .dialoog.breed { width: min(1040px, 100%); }
-.bulk-hulp-kop { display: flex; }
-.bulk-hulp { display: grid; gap: 8px; max-height: 300px; overflow: auto; padding: 10px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--vlak); }
-.bulk-hulp > .hulp { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--tekst-2); }
+#bulk-tekst::placeholder { color: var(--tekst-3); opacity: 0.6; font-style: italic; }
+.bulk-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bulk-start .veldlabel { margin: 0; }
+.bulk-modus-uitleg { margin: -4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--tekst-2); }
+.bulk-sectie { border: 1px solid var(--lijn); border-radius: 10px; background: var(--vlak); }
+.bulk-sectie > summary { cursor: pointer; padding: 9px 12px; font-size: 13px; }
+.bulk-sectie > summary span { color: var(--tekst-3); }
+.bulk-sectie[open] > summary { border-bottom: 1px solid var(--lijn); }
+.bulk-sectie > :not(summary) { margin: 10px 12px; }
+.bulk-sectie .spiek { max-height: 280px; overflow: auto; }
+.bulk-sectie.binnen { background: var(--paneel); }
+.taalmodel-stappen { padding-left: 20px; font-size: 12.5px; line-height: 1.6; color: var(--tekst-2); }
 .spiek { display: grid; gap: 12px; }
 .spiek-groep { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .spiek-groep h4 { grid-column: 1 / -1; margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tekst-3); }
@@ -482,8 +491,8 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .bulk-werk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .bulk-kolom { display: grid; gap: 6px; align-content: start; min-width: 0; }
 .bulk-kolom-kop { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
-#bulk-tekst { width: 100%; box-sizing: border-box; font: 13px/1.5 ui-monospace, Consolas, monospace; resize: vertical; min-height: 300px; }
-.bulk-overzicht { display: grid; gap: 8px; align-content: start; max-height: 360px; overflow: auto; padding: 8px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--vlak); min-height: 300px; box-sizing: border-box; }
+#bulk-tekst { width: 100%; box-sizing: border-box; font: 13px/1.5 ui-monospace, Consolas, monospace; resize: vertical; min-height: 240px; }
+.bulk-overzicht { display: grid; gap: 8px; align-content: start; max-height: 320px; overflow: auto; padding: 8px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--vlak); min-height: 240px; box-sizing: border-box; }
 .bulk-overzicht > p { margin: 0; font-size: 12.5px; }
 .bulk-lijst { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .bulk-lijst li { font-size: 12.5px; line-height: 1.45; padding: 6px 8px; border-radius: 8px; background: var(--paneel); border: 1px solid var(--lijn); }
@@ -7189,7 +7198,22 @@ function Speler(root, cursus, opts) {
   /* De hele tekst lezen: elk blok begint met een @-label. Tekst vóór het
      eerste label wordt gelezen als vragen (zoals zonder labels). Een codeblok
      van een taalmodel (```) wordt genegeerd. */
-  function leesBulkAlles(tekst) {
+  /* In de modus Tekst wordt tekst zonder label een tekstblok; een regel met # begint een nieuw blok met kop. */
+  function leesTekstZonderLabels(regels) {
+    var uit = [], kop = '', romp = [];
+    function sluit() {
+      if (kop || romp.join('').trim()) uit.push({ blok: { t: 'text', heading: kop, body: bulkHtml(romp) }, problemen: [], reden: kop ? 'want de regel met # wordt de kop' : 'want gewone tekst wordt een tekstblok' });
+      kop = ''; romp = [];
+    }
+    regels.forEach(function (rg) {
+      var m = rg.trim().match(/^#{1,3}\s+(.+)$/);
+      if (m) { sluit(); kop = m[1].trim(); } else romp.push(rg);
+    });
+    sluit();
+    return uit;
+  }
+
+  function leesBulkAlles(tekst, modus) {
     var stukken = [], huidig = { tag: null, rest: '', regels: [] };
     String(tekst || '').replace(/\r/g, '').split('\n').forEach(function (rg) {
       if (/^\s*```/.test(rg)) return;
@@ -7202,6 +7226,7 @@ function Speler(root, cursus, opts) {
     stukken.forEach(function (st) {
       if (!st.tag) {
         if (!st.regels.join('').trim()) return;
+        if (modus === 'tekst') { leesTekstZonderLabels(st.regels).forEach(function (x) { uit.push(x); }); return; }
         /* Tekst zonder antwoorden vóór de labels is vaak een inleiding van een taalmodel: een tekstblok, met een waarschuwing. */
         var metLabels = stukken.some(function (x) { return x.tag; });
         var antwoorden = st.regels.some(function (x) { return /^\s*[*+✓✔\-–—]\s+\S/.test(x); });
@@ -7237,24 +7262,68 @@ function Speler(root, cursus, opts) {
     return h('span', { class: 'soort-label ' + (GROEPKLEUR[groep ? groep.groep : 'Tekst'] || 'grijs'), text: paletNaam(sleutel).naam });
   }
 
-  /* Het spiekbriefje, per groep. */
-  function bulkSpiek() {
-    return h('div', { class: 'spiek' }, PALET.map(function (g) {
+  /* Drie startpunten. Bij Vragen en Tekst bepaalt de keuze wat tekst zonder
+     label wordt; Alle soorten werkt met @-labels (handig met een taalmodel). */
+  var BULK_MODI = {
+    vragen: { naam: 'Vragen', groepen: ['Vragen'], uitleg: 'Zonder label wordt elke alinea een vraag: * voor een goed antwoord, - voor een fout antwoord. Geen antwoorden: een open vraag of, met [haken], een invulvraag.' },
+    tekst: { naam: 'Tekst', groepen: ['Tekst'], uitleg: 'Zonder label wordt je tekst een tekstblok. Een regel die begint met # wordt een kop en begint een nieuw blok; regels met - worden een opsomming.' },
+    alles: { naam: 'Alle soorten', groepen: ['Tekst', 'Beeld en media', 'Interactief', 'Vragen', 'Structuur'], uitleg: 'Elk blok begint met een label op een eigen regel, zoals @tekst, @video, @kaartjes of @vraag. Zo zet je een hele module in één keer neer; ideaal met een taalmodel.' }
+  };
+  var BULK_VB = {
+    vragen: [
+      'Welke strategie houdt een product het langst in gebruik?',
+      '* Hergebruik', '- Recycling', '- Verbranden met energieterugwinning',
+      'Uitleg: Hoe hoger op de R-ladder, hoe meer waarde behouden blijft.',
+      '',
+      'Welke twee horen bij circulair ontwerpen?', '* Modulair ontwerp', '* Repareerbaarheid', '- Zo goedkoop mogelijk produceren',
+      '',
+      'Bij [recycling] wordt een product teruggebracht tot grondstof.',
+      '',
+      'Hoe zie je circulaire economie terug bij je stagebedrijf?'
+    ].join('\n'),
+    tekst: [
+      '# Wat is de R-ladder?',
+      'De R-ladder zet strategieën op een rij, van **weigeren** tot **terugwinnen**.',
+      '',
+      'Hoe hoger op de ladder, hoe meer waarde een product behoudt.',
+      '',
+      '# De treden',
+      '- Refuse en Rethink staan bovenaan',
+      '- Repair en Reuse in het midden',
+      '- Recycle en Recover onderaan',
+      '',
+      '@tip',
+      'Begin bij de bovenste treden: daar valt de meeste winst te halen.'
+    ].join('\n'),
+    alles: BULK_VOORBEELD
+  };
+
+  /* Voorbeelden per soort blok, voor de gekozen groepen. */
+  function bulkSpiek(modus) {
+    var groepen = BULK_MODI[modus].groepen;
+    return h('div', { class: 'spiek' }, PALET.filter(function (g) { return groepen.indexOf(g.groep) >= 0; }).map(function (g) {
       var labels = BULK_LABELS.filter(function (x) {
         if (x.verborgen) return false;
         return g.items.indexOf(x.t) >= 0 || (x.t === 'quiz' && g.groep === 'Vragen');
       });
       if (!labels.length) return null;
-      return h('div', { class: 'spiek-groep' }, h('h4', { text: g.groep }), labels.map(function (x) {
+      return h('div', { class: 'spiek-groep' }, groepen.length > 1 ? h('h4', { text: g.groep }) : null, labels.map(function (x) {
         return h('div', { class: 'spiek-kaart' }, h('code', { text: '@' + x.tag }), h('pre', { text: x.voorbeeld }), h('small', { text: x.uitleg }));
       }));
-    }), h('p', { class: 'hulp spiek-noot', text: 'Niet in bulk: scenario, klikplaat en galerij. Die maak je in de bouwer zelf, omdat ze afbeeldingen of keuzes per scène nodig hebben.' }));
+    }), modus === 'alles' ? h('p', { class: 'hulp spiek-noot', text: 'Niet in bulk: scenario, klikplaat en galerij. Die maak je in de bouwer zelf, omdat ze afbeeldingen of keuzes per scène nodig hebben.' }) : null);
   }
 
-  /* De instructie voor een taalmodel, uit dezelfde labels opgebouwd. */
-  function taalmodelInstructie() {
-    return [
-      'Je schrijft inhoud voor een e-learning in een vast tekstformaat. De E-learning Bouwer leest dat formaat direct in.',
+  /* De instructie voor een taalmodel, uit dezelfde labels, voor de gekozen groepen. */
+  function taalmodelInstructie(modus) {
+    var groepen = BULK_MODI[modus].groepen;
+    var labels = BULK_LABELS.filter(function (x) {
+      if (x.verborgen) return false;
+      return PALET.some(function (g) { return groepen.indexOf(g.groep) >= 0 && (g.items.indexOf(x.t) >= 0 || (x.t === 'quiz' && g.groep === 'Vragen')); });
+    });
+    var regels = [
+      modus === 'vragen' ? 'Je schrijft toetsvragen voor een e-learning in een vast tekstformaat. De E-learning Bouwer leest dat formaat direct in.'
+        : modus === 'tekst' ? 'Je schrijft lesteksten voor een e-learning in een vast tekstformaat. De E-learning Bouwer leest dat formaat direct in.'
+        : 'Je schrijft inhoud voor een e-learning in een vast tekstformaat. De E-learning Bouwer leest dat formaat direct in.',
       '',
       'Onderwerp, doelgroep en leerdoelen: [VUL HIER IN]',
       '',
@@ -7262,62 +7331,64 @@ function Speler(root, cursus, opts) {
       '- Antwoord alleen met de inhoud in dit formaat. Geen inleiding, geen afsluiting, geen toelichting en geen codeblok.',
       '- Elk blok begint op een eigen regel met een @-label uit de lijst hieronder. Zet een lege regel tussen twee blokken.',
       '- Gebruik alleen deze labels; verzin geen andere.',
-      '- Schrijf in het Nederlands op B1-niveau, met korte zinnen.',
-      '- Wissel uitleg af met interactie en vragen, en zet na elke 2 tot 4 blokken een @doorgaan.',
-      '- Vragen toetsen toepassen en begrijpen, niet alleen onthouden. Foute antwoorden zijn aannemelijk en ongeveer even lang als het goede antwoord; het goede antwoord staat niet steeds op dezelfde plek.',
-      '- Verzin geen links. Gebruik @video, @insluiten, @audio en @links alleen met een link die je van mij hebt gekregen.',
-      '- Gebruik geen Markdown, behalve **vet**, regels met - voor een opsomming en ## voor de titel van een tabblad.',
-      '',
-      'Labels (label, uitleg, voorbeeld):',
-      ''
-    ].concat(BULK_LABELS.filter(function (x) { return !x.verborgen; }).map(function (x) {
-      return '@' + x.tag + ': ' + x.uitleg + '\n' + x.voorbeeld;
-    }).join('\n\n').split('\n')).concat([
-      '',
-      'Naast @tip bestaan ook @letop, @info en @opdracht (zelfde opbouw), en naast @tabs ook @uitklap (zelfde opbouw).'
-    ]).join('\n');
+      '- Schrijf in het Nederlands op B1-niveau, met korte zinnen.'
+    ];
+    if (modus === 'alles') regels.push('- Wissel uitleg af met interactie en vragen, en zet na elke 2 tot 4 blokken een @doorgaan.');
+    if (modus !== 'tekst') regels.push('- Vragen toetsen toepassen en begrijpen, niet alleen onthouden. Foute antwoorden zijn aannemelijk en ongeveer even lang als het goede antwoord; het goede antwoord staat niet steeds op dezelfde plek.');
+    if (modus === 'alles') regels.push('- Verzin geen links. Gebruik @video, @insluiten, @audio en @links alleen met een link die je van mij hebt gekregen.');
+    regels.push('- Gebruik geen Markdown, behalve **vet**, regels met - voor een opsomming' + (modus === 'alles' ? ' en ## voor de titel van een tabblad.' : '.'), '', 'Labels (label, uitleg, voorbeeld):', '');
+    regels = regels.concat(labels.map(function (x) { return '@' + x.tag + ': ' + x.uitleg + '\n' + x.voorbeeld; }).join('\n\n').split('\n'));
+    if (modus !== 'vragen') regels.push('', 'Naast @tip bestaan ook @letop, @info en @opdracht (zelfde opbouw)' + (modus === 'alles' ? ', en naast @tabs ook @uitklap (zelfde opbouw).' : '.'));
+    return regels.join('\n');
   }
 
   function dialoogBulk(naIndex) {
     if (!les()) { melding('Maak eerst een module.'); return; }
     var plek = naIndex === undefined ? klikPlek() : naIndex;
+    var modus = BULK_MODI[ls('bouwer:bulk-modus')] ? ls('bouwer:bulk-modus') : 'vragen';
     dialoog(function (sluit) {
-      var vak = h('textarea', { id: 'bulk-tekst', rows: 14, placeholder: BULK_VOORBEELD, spellcheck: 'true', 'aria-label': 'Je inhoud' });
+      var vak = h('textarea', { id: 'bulk-tekst', rows: 12, spellcheck: 'true', 'aria-label': 'Je inhoud' });
       var overzicht = h('div', { class: 'bulk-overzicht', 'aria-live': 'polite' });
       var knop = h('button', { type: 'button', class: 'knop primair', disabled: true }, 'Toevoegen');
       var bewaarVink = h('input', { type: 'checkbox', id: 'bulk-bewaar' });
-      var naam = h('input', { type: 'text', id: 'bulk-naam', placeholder: 'Naam van de set, bijvoorbeeld: Module R-ladder', hidden: true });
+      var naam = h('input', { type: 'text', id: 'bulk-naam', placeholder: 'Naam van de set, bijvoorbeeld: Toetsvragen R-ladder', hidden: true });
+      var uitlegModus = h('p', { class: 'bulk-modus-uitleg' });
+      var spiekInhoud = h('div');
+      var instructie = h('textarea', { class: 'taalmodel-tekst', readonly: true, rows: 10, 'aria-label': 'Instructie voor een taalmodel' });
       var resultaat = [];
       bewaarVink.addEventListener('change', function () { naam.hidden = !bewaarVink.checked; if (bewaarVink.checked) naam.focus(); });
 
-      /* Spiekbriefje of instructie voor een taalmodel. */
-      var instructie = h('textarea', { class: 'taalmodel-tekst', readonly: true, rows: 10, 'aria-label': 'Instructie voor een taalmodel' });
-      instructie.value = taalmodelInstructie();
+      /* Het startpunt kiezen past uitleg, voorbeelden, instructie en lezen aan. */
+      var modusKnoppen = Object.keys(BULK_MODI).map(function (k) {
+        return h('button', { type: 'button', 'aria-pressed': String(k === modus), onclick: function () { zetModus(k); } }, BULK_MODI[k].naam);
+      });
+      function zetModus(k) {
+        modus = k;
+        try { ls('bouwer:bulk-modus', k); } catch (e) { /* alleen nu */ }
+        modusKnoppen.forEach(function (b, i) { b.setAttribute('aria-pressed', String(Object.keys(BULK_MODI)[i] === k)); });
+        uitlegModus.textContent = BULK_MODI[k].uitleg;
+        vak.placeholder = BULK_VB[k];
+        spiekInhoud.innerHTML = '';
+        spiekInhoud.append(bulkSpiek(k));
+        instructie.value = taalmodelInstructie(k);
+        kopieer.textContent = 'Instructie kopiëren (' + BULK_MODI[k].naam.toLowerCase() + ')';
+        werk();
+      }
+
       var kopieer = h('button', { type: 'button', class: 'knop klein primair' }, 'Instructie kopiëren');
       kopieer.addEventListener('click', function () {
-        function gelukt() { kopieer.textContent = 'Gekopieerd'; setTimeout(function () { kopieer.textContent = 'Instructie kopiëren'; }, 2000); }
+        var oud = kopieer.textContent;
+        function gelukt() { kopieer.textContent = 'Gekopieerd'; setTimeout(function () { kopieer.textContent = oud; }, 2000); }
         var klaar = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(instructie.value) : Promise.reject();
         klaar.then(gelukt, function () {
+          instructie.closest('details').open = true;
           instructie.focus(); instructie.select();
           try { if (document.execCommand('copy')) gelukt(); else melding('Selecteer de tekst en kopieer met Ctrl+C.'); } catch (e) { melding('Selecteer de tekst en kopieer met Ctrl+C.'); }
         });
       });
-      var spiekVak = h('div', { class: 'bulk-hulp' }, bulkSpiek());
-      var aiVak = h('div', { class: 'bulk-hulp', hidden: true },
-        h('p', { class: 'hulp', text: 'Laat een taalmodel (zoals Copilot of ChatGPT) de inhoud schrijven: kopieer deze instructie, vul bovenaan je onderwerp en leerdoelen in, en plak het antwoord van het taalmodel hieronder bij "Jouw inhoud". Lees daarna alles na; een taalmodel kan zich vergissen.' }),
-        instructie, h('div', { class: 'knoprij' }, kopieer));
-      function tab(knopTekst, toon) {
-        var b = h('button', { type: 'button', 'aria-pressed': String(toon === spiekVak), onclick: function () {
-          spiekVak.hidden = toon !== spiekVak; aiVak.hidden = toon !== aiVak;
-          tabs.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
-        } }, knopTekst);
-        return b;
-      }
-      var tabs = h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Hulp' });
-      tabs.append(tab('Spiekbriefje', spiekVak), tab('Instructie voor een taalmodel', aiVak));
 
       function werk() {
-        resultaat = leesBulkAlles(vak.value);
+        resultaat = leesBulkAlles(vak.value, modus);
         overzicht.innerHTML = '';
         if (!resultaat.length) {
           overzicht.append(h('p', { class: 'hulp', text: 'Hier zie je per blok welke soort het wordt, en waarom.' }));
@@ -7357,17 +7428,28 @@ function Speler(root, cursus, opts) {
           }).catch(function () { melding(aantal(n, '1 blok', 'blokken') + ' toegevoegd; bewaren in Mijn blokken lukte niet.'); });
         } else melding(aantal(n, '1 blok', 'blokken') + ' toegevoegd. Controleren wijst aan wat nog ontbreekt, zoals afbeeldingen of uitleg.');
       });
-      werk();
-      return [
+
+      var nodes = [
         h('h2', null, 'Bulk invoeren'),
-        h('p', null, 'Typ of plak een hele module of een reeks vragen in één keer. Elk blok begint met een label op een eigen regel, zoals @tekst, @vraag of @koppel. Vragen zonder label mogen ook.'),
-        h('div', { class: 'bulk-hulp-kop' }, tabs),
-        spiekVak,
-        aiVak,
+        h('div', { class: 'bulk-start' },
+          h('span', { class: 'veldlabel', text: 'Wat wil je invoeren?' }),
+          h('span', { class: 'segment-keuze', role: 'group', 'aria-label': 'Wat wil je invoeren' }, modusKnoppen)),
+        uitlegModus,
+        h('details', { class: 'bulk-sectie' },
+          h('summary', null, h('strong', { text: 'Hoe schrijf je het?' }), h('span', { text: ' Voorbeelden per soort blok' })),
+          spiekInhoud),
+        h('details', { class: 'bulk-sectie' },
+          h('summary', null, h('strong', { text: 'Laat een taalmodel het schrijven' }), h('span', { text: ' zoals Copilot of ChatGPT' })),
+          h('ol', { class: 'taalmodel-stappen' },
+            h('li', null, 'Kopieer de instructie hieronder. Voor een hele module kies je bovenaan eerst ', h('strong', { text: 'Alle soorten' }), '.'),
+            h('li', null, 'Plak hem in het taalmodel en vul bovenaan je onderwerp, doelgroep en leerdoelen in.'),
+            h('li', null, 'Plak het antwoord van het taalmodel hieronder bij "Jouw inhoud", en lees alles na.')),
+          h('div', { class: 'knoprij' }, kopieer),
+          h('details', { class: 'bulk-sectie binnen' }, h('summary', { text: 'Instructie bekijken' }), instructie)),
         h('div', { class: 'bulk-werk' },
           h('div', { class: 'bulk-kolom' },
             h('div', { class: 'bulk-kolom-kop' }, h('strong', { text: 'Jouw inhoud' }),
-              h('button', { type: 'button', class: 'knop-tekst', onclick: function () { vak.value = BULK_VOORBEELD; werk(); vak.focus(); } }, 'Voorbeeld invullen')),
+              h('button', { type: 'button', class: 'knop-tekst', onclick: function () { vak.value = BULK_VB[modus]; werk(); vak.focus(); } }, 'Voorbeeld invullen')),
             vak),
           h('div', { class: 'bulk-kolom' },
             h('div', { class: 'bulk-kolom-kop' }, h('strong', { text: 'Dit wordt het' })),
@@ -7377,6 +7459,8 @@ function Speler(root, cursus, opts) {
           naam),
         h('div', { class: 'voet' }, h('button', { type: 'button', class: 'knop', onclick: sluit }, 'Annuleren'), knop)
       ];
+      zetModus(modus);
+      return nodes;
     });
     /* Dit venster is breder dan de andere, zodat invoer en uitkomst naast elkaar passen. */
     var vensters = document.querySelectorAll('.dialoog');

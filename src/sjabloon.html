@@ -453,9 +453,18 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .paneel-groep { display: grid; gap: 6px; }
 .bulk-knop { justify-self: start; }
 .dialoog.breed { width: min(1040px, 100%); }
-.bulk-hulp-kop { display: flex; }
-.bulk-hulp { display: grid; gap: 8px; max-height: 300px; overflow: auto; padding: 10px; border: 1px solid var(--lijn); border-radius: 10px; background: var(--vlak); }
-.bulk-hulp > .hulp { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--tekst-2); }
+#bulk-tekst::placeholder { color: var(--tekst-3); opacity: 0.6; font-style: italic; }
+.bulk-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bulk-start .veldlabel { margin: 0; }
+.bulk-modus-uitleg { margin: -4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--tekst-2); }
+.bulk-sectie { border: 1px solid var(--lijn); border-radius: 10px; background: var(--vlak); }
+.bulk-sectie > summary { cursor: pointer; padding: 9px 12px; font-size: 13px; }
+.bulk-sectie > summary span { color: var(--tekst-3); }
+.bulk-sectie[open] > summary { border-bottom: 1px solid var(--lijn); }
+.bulk-sectie > :not(summary) { margin: 10px 12px; }
+.bulk-sectie .spiek { max-height: 280px; overflow: auto; }
+.bulk-sectie.binnen { background: var(--paneel); }
+.taalmodel-stappen { padding-left: 20px; font-size: 12.5px; line-height: 1.6; color: var(--tekst-2); }
 .spiek { display: grid; gap: 12px; }
 .spiek-groep { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .spiek-groep h4 { grid-column: 1 / -1; margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tekst-3); }
@@ -475,8 +484,8 @@ body.aan-het-slepen, body.aan-het-slepen * { cursor: grabbing !important; user-s
 .bulk-werk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .bulk-kolom { display: grid; gap: 6px; align-content: start; min-width: 0; }
 .bulk-kolom-kop { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
-#bulk-tekst { width: 100%; box-sizing: border-box; font: 13px/1.5 ui-monospace, Consolas, monospace; resize: vertical; min-height: 300px; }
-.bulk-overzicht { display: grid; gap: 8px; align-content: start; max-height: 360px; overflow: auto; padding: 8px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--vlak); min-height: 300px; box-sizing: border-box; }
+#bulk-tekst { width: 100%; box-sizing: border-box; font: 13px/1.5 ui-monospace, Consolas, monospace; resize: vertical; min-height: 240px; }
+.bulk-overzicht { display: grid; gap: 8px; align-content: start; max-height: 320px; overflow: auto; padding: 8px; border: 1px solid var(--lijn); border-radius: 9px; background: var(--vlak); min-height: 240px; box-sizing: border-box; }
 .bulk-overzicht > p { margin: 0; font-size: 12.5px; }
 .bulk-lijst { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .bulk-lijst li { font-size: 12.5px; line-height: 1.45; padding: 6px 8px; border-radius: 8px; background: var(--paneel); border: 1px solid var(--lijn); }
