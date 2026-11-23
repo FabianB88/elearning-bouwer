@@ -3425,7 +3425,7 @@
           h('summary', null, h('strong', { text: 'Hoe schrijf je het?' }), h('span', { text: ' Voorbeelden per soort blok' })),
           spiekInhoud),
         h('details', { class: 'bulk-sectie' },
-          h('summary', null, h('strong', { text: 'Laat een taalmodel het schrijven' }), h('span', { text: ' zoals Copilot of ChatGPT' })),
+          h('summary', null, h('strong', { text: 'Laat een taalmodel het schrijven' })),
           h('ol', { class: 'taalmodel-stappen' },
             h('li', null, 'Kopieer de instructie hieronder. Voor een hele module kies je bovenaan eerst ', h('strong', { text: 'Alle soorten' }), '.'),
             h('li', null, 'Plak hem in het taalmodel en vul bovenaan je onderwerp, doelgroep en leerdoelen in.'),
